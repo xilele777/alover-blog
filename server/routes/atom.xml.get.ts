@@ -2,11 +2,14 @@ import type { ContentCollectionItem } from '@nuxt/content'
 import { XMLBuilder } from 'fast-xml-parser'
 import { pascal } from 'radash'
 import { Temporal } from 'temporal-polyfill'
+import { joinURL, withLeadingSlash, withTrailingSlash } from 'ufo'
 import blogConfig from '~~/blog.config'
 import packageJson from '~~/package.json'
 import { toZonedTemporal } from '~~/shared/utils/time'
 
 const runtimeConfig = useRuntimeConfig()
+const siteUrl = new URL(blogConfig.url)
+const sitePath = withLeadingSlash(withTrailingSlash(siteUrl.pathname))
 
 const builder = new XMLBuilder({
 	attributeNamePrefix: '$',
@@ -29,7 +32,11 @@ function formatIsoDate(date?: string) {
 }
 
 function getUrl(path: string | undefined) {
-	return new URL(path ?? '', blogConfig.url).toString()
+	if (!path)
+		return blogConfig.url
+	if (path.includes('://'))
+		return path
+	return new URL(joinURL(sitePath, path), siteUrl.origin).toString()
 }
 
 function renderContent(post: ContentCollectionItem) {
@@ -83,8 +90,8 @@ export default defineEventHandler(async (event) => {
 			$version: packageJson.version,
 			_: pascal(packageJson.name),
 		},
-		icon: blogConfig.favicon,
-		logo: blogConfig.author.avatar, // Ratio should be 2:1
+		icon: getUrl(blogConfig.favicon),
+		logo: getUrl(blogConfig.author.avatar), // Ratio should be 2:1
 		rights: `© ${Temporal.Now.plainDateISO().year.toString()} ${blogConfig.author.name}`,
 		subtitle: blogConfig.subtitle || blogConfig.description,
 		entry: entries,
@@ -92,7 +99,7 @@ export default defineEventHandler(async (event) => {
 
 	return builder.build({
 		'?xml': { $version: '1.0', $encoding: 'UTF-8' },
-		'?xml-stylesheet': blogConfig.feed.enableStyle ? { $type: 'text/xsl', $href: '/assets/atom.xsl' } : undefined,
+		'?xml-stylesheet': blogConfig.feed.enableStyle ? { $type: 'text/xsl', $href: getUrl('assets/atom.xsl') } : undefined,
 		feed,
 	})
 })

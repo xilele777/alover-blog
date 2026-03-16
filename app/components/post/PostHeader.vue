@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ArticleProps } from '~/types/article'
+import { joinURL, withLeadingSlash, withTrailingSlash } from 'ufo'
 
 defineOptions({ inheritAttrs: false })
 const props = defineProps<ArticleProps>()
@@ -9,10 +10,19 @@ const appConfig = useAppConfig()
 const coverFilter = computed(() => props.meta?.coverFilter || (props.meta?.coverDim && 'brightness(0.75)') || undefined)
 const categoryLabel = computed(() => props.categories?.[0])
 const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
+const siteUrl = new URL(appConfig.url)
+const sitePath = withLeadingSlash(withTrailingSlash(siteUrl.pathname))
+
+const shareLink = computed(() => {
+	const path = props.path || ''
+	if (path.includes('://'))
+		return path
+	return new URL(joinURL(sitePath, path), siteUrl.origin).href
+})
 
 const shareText = `【${appConfig.title}】${props.title}\n\n${
 	props.description ? `${props.description}\n\n` : ''}${
-	new URL(props.path!, appConfig.url).href}`
+	shareLink.value}`
 
 const { copy, copied } = useCopy(shareText)
 </script>
