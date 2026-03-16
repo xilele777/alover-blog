@@ -45,9 +45,9 @@ export default defineAppConfig({
 
 		stats: {
 			/** 归档页面每年标题对应的年龄 */
-			birthYear: 2003,
+			birthYear: 2007,
 			/** blog-stats widget 的预置文本 */
-			wordCount: '约10万',
+			wordCount: '持续更新中',
 		},
 	},
 
@@ -58,8 +58,8 @@ export default defineAppConfig({
 		/** 侧边栏底部图标导航 */
 		iconNav: [
 			{ icon: 'ph:house-bold', text: '个人主页', url: blogConfig.author.homepage },
-			{ icon: 'ri:qq-line', text: '交流群: 169994096', url: 'https://jq.qq.com/?_wv=1027&k=lQfNSeEd' },
-			{ icon: 'ph:github-logo-bold', text: 'GitHub: L33Z22L11', url: 'https://github.com/L33Z22L11' },
+			/*{ icon: 'ri:qq-line', text: '交流群: 169994096', url: 'https://jq.qq.com/?_wv=1027&k=lQfNSeEd' },*/
+			{ icon: 'ph:github-logo-bold', text: 'GitHub: xilele777', url: 'https://github.com/xilele777' },
 			{ icon: 'ph:rss-simple-bold', text: 'Atom订阅', url: '/atom.xml' },
 			{ icon: 'ph:subway-bold', text: '开往', url: 'https://www.travellings.cn/' },
 		] satisfies NavItem[],
@@ -75,8 +75,8 @@ export default defineAppConfig({
 			{
 				title: '社交',
 				items: [
-					{ icon: 'ph:github-logo-bold', text: 'L33Z22L11', url: 'https://github.com/L33Z22L11' },
-					{ icon: 'ri:qq-line', text: '群: 169994096', url: 'https://jq.qq.com/?_wv=1027&k=lQfNSeEd' },
+					{ icon: 'ph:github-logo-bold', text: 'GitHub: xilele777', url: 'https://github.com/xilele777' },
+				/*	{ icon: 'ri:qq-line', text: '群: 169994096', url: 'https://jq.qq.com/?_wv=1027&k=lQfNSeEd' },*/
 					{ icon: 'ph:envelope-simple-bold', text: blogConfig.author.email, url: `mailto:${blogConfig.author.email}` },
 				],
 			},
@@ -84,8 +84,8 @@ export default defineAppConfig({
 				title: '信息',
 				items: [
 					{ icon: 'simple-icons:nuxt', text: `主题: ${pascal(name)} ${version}`, url: 'https://github.com/L33Z22L11/blog-v3' },
-					{ icon: 'ph:swatches-bold', text: '主题和组件文档', url: '/theme' },
-					{ icon: 'ph:certificate-bold', text: '陕ICP备2025082251号', url: 'https://beian.miit.gov.cn/' },
+					{ icon: 'ph:swatches-bold', text: '主题和组件文档', url: 'https://blog.zhilu.site/theme' },
+				/*	{ icon: 'ph:certificate-bold', text: '备案', url: 'https://beian.miit.gov.cn/' },*/
 				],
 			},
 		] satisfies Nav,
@@ -93,7 +93,7 @@ export default defineAppConfig({
 
 	/** 左侧栏顶部 Logo */
 	header: {
-		logo: 'https://weavatar.com/avatar/47c0f2e82b76d9b10eb3023df9e02e4e3fdbeaf5b74b842063f207971e7fbe7b?s=160',
+		logo: blogConfig.author.avatar,
 		/** 展示标题文本，否则展示纯 Logo */
 		showTitle: true,
 		subtitle: blogConfig.subtitle,
@@ -114,7 +114,7 @@ export default defineAppConfig({
 			title: '',
 			items: [
 				{ icon: 'ph:files-bold', text: '文章', url: '/' },
-				{ icon: 'ph:link-bold', text: '友链', url: '/link' },
+			/*	{ icon: 'ph:link-bold', text: '友链', url: '/link' },*/
 				{ icon: 'ph:archive-bold', text: '归档', url: '/archive' },
 			],
 		},

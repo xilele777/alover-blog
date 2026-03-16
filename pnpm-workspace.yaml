@@ -85,3 +85,5 @@ patchedDependencies:
   playwright-core: patches/playwright-core.patch
 
 shamefullyHoist: true
+catalog:
+  '@iconify-json/line-md': ^1.2.16

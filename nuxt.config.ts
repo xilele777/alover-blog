@@ -13,9 +13,17 @@ function pluginPath(path: string) {
 	return pathToFileURL(resolve(`./remark-plugins/${path}.ts`)).href
 }
 
+function getGithubPagesBaseURL() {
+	const repo = env.GITHUB_REPOSITORY?.split('/')[1]
+	if (!repo || repo.endsWith('.github.io'))
+		return '/'
+	return `/${repo}/`
+}
+
 // 此处配置无需修改
 export default defineNuxtConfig({
 	app: {
+		baseURL: GITHUB_ACTIONS ? getGithubPagesBaseURL() : '/',
 		head: {
 			meta: [
 				{ name: 'author', content: [blogConfig.author.name, blogConfig.author.email].filter(Boolean).join(', ') },
@@ -25,7 +33,8 @@ export default defineNuxtConfig({
 				{ name: 'mobile-web-app-capable', content: 'yes' },
 			],
 			link: [
-				{ rel: 'icon', href: blogConfig.favicon },
+				{ rel: 'icon', type: 'image/svg+xml', href: blogConfig.favicon },
+				{ rel: 'shortcut icon', href: blogConfig.favicon },
 				{ rel: 'alternate', type: 'application/atom+xml', href: '/atom.xml' },
 				{ rel: 'preconnect', href: blogConfig.twikoo.preload },
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
