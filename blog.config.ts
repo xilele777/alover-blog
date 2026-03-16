@@ -18,7 +18,7 @@ const basicConfig = {
 	},
 	favicon: '/favicon.svg',
 	language: 'zh-CN',
-	timeEstablished: '2026-03-16',
+	timeEstablished: '2026-03-16 21:00:00',
 	timeZone: 'Asia/Shanghai',
 	url: 'https://xilele777.github.io/my_blogs_pro/',
 	defaultCategory: '未分类',
