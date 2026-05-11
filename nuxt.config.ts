@@ -23,7 +23,7 @@ function getGithubPagesBaseURL() {
 // 此处配置无需修改
 export default defineNuxtConfig({
 	app: {
-		baseURL: GITHUB_ACTIONS ? getGithubPagesBaseURL() : '/',
+		baseURL: '/',
 		head: {
 			meta: [
 				{ name: 'author', content: [blogConfig.author.name, blogConfig.author.email].filter(Boolean).join(', ') },
