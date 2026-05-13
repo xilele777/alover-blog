@@ -23,9 +23,9 @@ function hasHeading(tocTree: TocLink, heading?: string): boolean {
 			<Icon name="ph:arrow-circle-up-bold" />
 		</a>
 
-		<a href="#twikoo" aria-label="评论区">
+		<!-- <a href="#twikoo" aria-label="评论区">
 			<Icon name="ph:chat-circle-text-bold" />
-		</a>
+		</a> -->
 	</template>
 
 	<!-- 放在顶层会导致 Transition 失效 -->

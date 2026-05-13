@@ -30,10 +30,11 @@ const appConfig = useAppConfig()
 	color: var(--c-text-2);
 
 	.footer-nav {
-		display: flex;
+		display: none;
+		/* display: flex;
 		flex-wrap: wrap;
 		gap: 5vw clamp(2rem, 5%, 5vw);
-		padding-block: 3rem;
+		padding-block: 3rem; */
 
 		h3 {
 			margin: 0.5em;
