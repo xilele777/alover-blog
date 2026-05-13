@@ -59,7 +59,7 @@ if (import.meta.dev) {
 
 	<PostFooter v-bind="post" />
 	<PostSurround />
-	<PostComment />
+	<PostComment v-if="false" />
 </template>
 
 <ZError
