@@ -10,5 +10,6 @@ declare global {
 			}) => void
 			version: string
 		}
+		_hmt?: any[]
 	}
 }
