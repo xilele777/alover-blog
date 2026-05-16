@@ -73,7 +73,16 @@ const blogConfig = {
 	},
 
 	/** 向 <head> 中添加脚本 */
-	scripts: [],
+	scripts: [
+		// Twikoo 评论系统
+		{ src: 'https://lib.baomitu.com/twikoo/1.6.44/twikoo.min.js', defer: true },
+	],
+
+	/** 自己部署的 Twikoo 服务 */
+	twikoo: {
+		envId: 'https://twikoo.example.site/',
+		preload: 'https://twikoo.example.site/',
+	},
 }
 
 /** 用于生成 OPML 和友链页面配置 */
