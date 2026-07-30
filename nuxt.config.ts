@@ -13,13 +13,6 @@ function pluginPath(path: string) {
 	return pathToFileURL(resolve(`./remark-plugins/${path}.ts`)).href
 }
 
-function getGithubPagesBaseURL() {
-	const repo = env.GITHUB_REPOSITORY?.split('/')[1]
-	if (!repo || repo.endsWith('.github.io'))
-		return '/'
-	return `/${repo}/`
-}
-
 // 此处配置无需修改
 export default defineNuxtConfig({
 	app: {
@@ -33,10 +26,10 @@ export default defineNuxtConfig({
 				{ name: 'mobile-web-app-capable', content: 'yes' },
 			],
 			link: [
-			{ rel: 'icon', type: 'image/png', href: blogConfig.favicon },
-			{ rel: 'shortcut icon', href: blogConfig.favicon },
 				{ rel: 'alternate', type: 'application/atom+xml', href: '/atom.xml' },
+				{ rel: 'icon', type: 'image/png', href: blogConfig.favicon },
 				{ rel: 'preconnect', href: blogConfig.twikoo?.preload },
+				{ rel: 'shortcut icon', href: blogConfig.favicon },
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay"
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css', media: 'print', onload: 'this.media="all"' },
@@ -98,6 +91,7 @@ export default defineNuxtConfig({
 				acc![from] = { redirect: { to, statusCode: 308 } }
 				return acc
 			}, {}),
+		'/admin': { prerender: true },
 		'/api/stats': { prerender: true, headers: { 'Content-Type': 'application/json' } },
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
