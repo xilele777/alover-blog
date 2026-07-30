@@ -1,16 +1,21 @@
+<script setup lang="ts">
+const route = useRoute()
+const isAdminRoute = computed(() => route.path.startsWith('/admin'))
+</script>
+
 <template>
 <NuxtLoadingIndicator />
 <NuxtRouteAnnouncer :style="{ position: 'absolute' }" />
-<BlogSkipToContent />
-<BlogSidebar />
-<div id="content">
+<BlogSkipToContent v-if="!isAdminRoute" />
+<BlogSidebar v-if="!isAdminRoute" />
+<div id="content" :class="{ 'admin-shell': isAdminRoute }">
 	<main id="main-content">
 		<NuxtPage />
-		<BlogFooter />
+		<BlogFooter v-if="!isAdminRoute" />
 	</main>
-	<BlogAside />
+	<BlogAside v-if="!isAdminRoute" />
 </div>
-<BlogPanel />
+<BlogPanel v-if="!isAdminRoute" />
 <BikariyaModals />
 </template>
 
@@ -55,6 +60,18 @@
 		// 使内容正确计算宽度而不横向溢出
 		// 也可设置 width: 0 或者 contain: inline-size（兼容性不佳）
 		min-width: 0;
+	}
+
+	&.admin-shell {
+		overflow: hidden;
+		width: 100%;
+		height: 100vh;
+		max-width: none;
+
+		> #main-content {
+			width: 100%;
+			height: 100%;
+		}
 	}
 }
 </style>

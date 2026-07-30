@@ -6,7 +6,10 @@ layoutStore.setAside(['toc'])
 
 const { data: post } = await useAsyncData(
 	route.path,
-	() => queryCollection('content').path(route.path).first(),
+	() => queryCollection('content')
+		.path(route.path)
+		.where('draft', '=', false)
+		.first(),
 )
 
 const contentStore = useContentStore()
