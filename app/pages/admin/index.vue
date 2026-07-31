@@ -15,12 +15,20 @@ interface GithubTreeItem {
 
 interface GithubPost {
 	category?: string
+	date?: string
 	draft?: boolean
 	name: string
 	path: string
+	recommend?: number
 	sha?: string
+	tags?: string[]
 	title: string
-	date?: string
+}
+
+interface CategoryDefinition {
+	color?: string
+	icon: string
+	name: string
 }
 
 interface GithubContent {
@@ -36,6 +44,14 @@ interface PublishResult {
 	path?: string
 }
 
+interface PendingConfirmation {
+	action: () => Promise<void> | void
+	confirmLabel: string
+	detail?: string
+	message: string
+	title: string
+}
+
 const settingsKey = 'blog-admin:github-settings'
 const postsKey = 'blog-admin:posts'
 const customCategoriesKey = 'blog-admin:custom-categories'
@@ -48,19 +64,49 @@ const tagSplitRegex = /[\s,，]+/
 const fileUnsafeRegex = /[\\/:*?"<>|]/g
 const fileWhitespaceRegex = /\s+/g
 const newlineRegex = /\n/g
+const lineBreakRegex = /\r?\n/
 const encodedSlashRegex = /%2F/g
-const frontmatterRegex = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/
+// Markdown files may be committed with either LF or CRLF line endings.
+const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/
 const mdExtensionRegex = /\.md$/
 const contentPrefixRegex = /^content/
+const publicPrefixRegex = /^public\//
 const bracketListRegex = /^\[(.*)\]$/
+const listTokenRegex = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^']*'|[^,\s]+/g
 const surroundingQuoteRegex = /^["']|["']$/g
 const contentPathRegex = /^content\/posts\/(\d{4})\/(.+)\.md$/
+const fileExtensionRegex = /\.[^.]+$/
+const categoryConfigBlockRegex = /\/\/ BLOG_ADMIN_CATEGORIES_START[\s\S]*?\/\/ BLOG_ADMIN_CATEGORIES_END/
+const blogConfigDeclarationRegex = /^const\s+blogConfig\s*=/m
+const categoriesPropertyRegex = /(\bcategories\s*:\s*\{\s*)/
+const frontmatterTagsLineRegex = /^tags:[^\r\n]*$/m
+const frontmatterUpdatedLineRegex = /^updated:[^\r\n]*$/m
 const githubRequestTimeout = 30000
+const maxImageSize = 8 * 1024 * 1024
+const imageExtensionMap: Record<string, string> = {
+	'image/avif': 'avif',
+	'image/gif': 'gif',
+	'image/jpeg': 'jpg',
+	'image/png': 'png',
+	'image/webp': 'webp',
+}
+const bodyImageSizeOptions = [
+	{ label: '自适应', value: '' },
+	{ label: '小图', value: '360' },
+	{ label: '中图', value: '560' },
+	{ label: '大图', value: '760' },
+]
 
-const baseCategoryOptions = Object.keys(blogConfig.article.categories)
+const defaultCategoryName = blogConfig.defaultCategory
+const baseCategoryDefinitions = Object.entries(blogConfig.article.categories).map(([name, value]) => ({
+	color: 'color' in value ? value.color : undefined,
+	icon: value.icon || blogConfig.article.defaultCategoryIcon,
+	name,
+}))
+const baseCategoryOptions = baseCategoryDefinitions.map(item => item.name)
 const defaultArticleType = Object.keys(blogConfig.article.types)[0] || 'tech'
-const customCategoryOptions = ref<string[]>([])
-const categoryOptions = computed(() => [...new Set([...baseCategoryOptions, ...customCategoryOptions.value])])
+const categoryDefinitions = ref<CategoryDefinition[]>(baseCategoryDefinitions)
+const categoryOptions = computed(() => categoryDefinitions.value.map(item => item.name))
 const settings = reactive<GithubSettings>({
 	owner: 'xilele777',
 	repo: 'alover-blog',
@@ -72,34 +118,55 @@ const form = reactive({
 	title: '',
 	slug: '',
 	description: '',
+	image: '',
 	date: '',
 	updated: '',
 	category: baseCategoryOptions.includes('技术') ? '技术' : baseCategoryOptions[0],
 	customCategory: '',
+	customCategoryColor: '#64748b',
+	customCategoryIcon: 'ph:folder-bold',
 	tags: '',
 	type: defaultArticleType,
+	recommend: 1,
 	draft: false,
 	body: '',
 })
+const bodyImageWidth = ref('')
 
 const posts = ref<GithubPost[]>([])
 const selectedPostPath = ref('')
 const selectedPostSha = ref('')
 const selectedPostOriginalPath = ref('')
-const activeDialog = ref<'github' | 'posts' | 'meta' | null>(null)
+const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'meta' | 'posts' | 'tags' | null>(null)
+const pendingConfirmation = shallowRef<PendingConfirmation | null>(null)
 const postSearch = ref('')
+const postView = ref<'all' | 'drafts' | 'published'>('all')
 const postPage = ref(1)
 const isLoadingPosts = ref(false)
 const isLoadingPost = ref(false)
 const isPublishing = ref(false)
+const isDeletingPost = ref(false)
+const isSavingCategories = ref(false)
+const isUpdatingTags = ref(false)
+const isUploadingImage = ref(false)
+const isUploadingBodyImage = ref(false)
 const isHydratingForm = ref(false)
 const statusMessage = ref('')
 const errorMessage = ref('')
 const publishResult = ref<PublishResult | null>(null)
+const imageUploadInput = ref<HTMLInputElement>()
+const bodyImageUploadInput = ref<HTMLInputElement>()
+const bodyTextarea = ref<HTMLTextAreaElement>()
+const tagInput = ref('')
+const managedTag = ref('')
+const mergedTag = ref('')
+const coverPreviewUrl = ref('')
+const bodyImagePreviewUrls = ref<Record<string, string>>({})
 
 useSeoMeta({
 	title: '博客后台',
 	description: '博客文章管理后台。',
+	robots: 'noindex, nofollow, noarchive',
 })
 
 const layoutStore = useLayoutStore()
@@ -146,7 +213,7 @@ watch(() => form.title, (title) => {
 		form.slug = normalized
 })
 
-watch(() => [form.title, form.description, form.category, form.customCategory, form.tags, form.draft, form.body], () => {
+watch(() => [form.title, form.description, form.image, form.category, form.customCategory, form.tags, form.type, form.recommend, form.draft, form.body], () => {
 	if (isHydratingForm.value || isPublishing.value)
 		return
 	form.updated = localDateTime()
@@ -154,20 +221,43 @@ watch(() => [form.title, form.description, form.category, form.customCategory, f
 
 const repoPath = computed(() => `/repos/${settings.owner.trim()}/${settings.repo.trim()}`)
 const selectedCategory = computed(() => form.category === '__custom' ? form.customCategory.trim() : form.category)
-const tags = computed(() => form.tags.split(tagSplitRegex).map(tag => tag.trim()).filter(Boolean))
+const tags = computed(() => [...new Set(form.tags.split(tagSplitRegex).map(tag => tag.trim()).filter(Boolean))])
+const tagStats = computed(() => {
+	const counts = new Map<string, number>()
+	for (const post of posts.value) {
+		for (const tag of post.tags || [])
+			counts.set(tag, (counts.get(tag) || 0) + 1)
+	}
+	return Array.from(counts.entries(), ([name, count]) => ({ name, count }))
+		.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+})
+const tagSuggestions = computed(() => tagStats.value.map(item => item.name).filter(tag => !tags.value.includes(tag)))
 const postsPerPage = 5
 
 const searchedPosts = computed(() => {
 	const keyword = postSearch.value.trim().toLowerCase()
-	if (!keyword)
-		return posts.value
-	return posts.value.filter(post => [
-		post.title,
-		post.category,
-		post.date,
-		post.path,
-	].some(value => value?.toLowerCase().includes(keyword)))
+	return posts.value.filter((post) => {
+		if (postView.value === 'drafts' && !post.draft)
+			return false
+		if (postView.value === 'published' && post.draft)
+			return false
+		if (!keyword)
+			return true
+		return [
+			post.title,
+			post.category,
+			post.date,
+			post.path,
+			...(post.tags || []),
+		].some(value => value?.toLowerCase().includes(keyword))
+	})
 })
+
+const postCounts = computed(() => ({
+	all: posts.value.length,
+	drafts: posts.value.filter(post => post.draft).length,
+	published: posts.value.filter(post => !post.draft).length,
+}))
 
 const totalPostPages = computed(() => Math.max(1, Math.ceil(searchedPosts.value.length / postsPerPage)))
 const pagedPosts = computed(() => {
@@ -194,8 +284,17 @@ const postListRange = computed(() => {
 })
 
 const canUseGithub = computed(() => hasGithubSettings())
+const dialogMeta = computed(() => ({
+	categories: { icon: 'ph:folders-bold', title: '分类管理' },
+	confirm: { icon: 'ph:warning-circle-bold', title: pendingConfirmation.value?.title || '确认操作' },
+	delete: { icon: 'ph:trash-bold', title: '删除文章' },
+	github: { icon: 'ph:github-logo-bold', title: 'GitHub 配置' },
+	meta: { icon: 'ph:sliders-horizontal-bold', title: '文章设置' },
+	posts: { icon: 'ph:files-bold', title: postView.value === 'drafts' ? '草稿箱' : '文章列表' },
+	tags: { icon: 'ph:tag-bold', title: '标签管理' },
+})[activeDialog.value || 'meta'])
 
-watch(postSearch, () => {
+watch([postSearch, postView], () => {
 	postPage.value = 1
 })
 
@@ -214,27 +313,52 @@ const markdown = computed(() => {
 
 	if (form.description.trim())
 		lines.push(`description: ${yamlString(form.description.trim())}`)
+	if (form.image.trim())
+		lines.push(`image: ${yamlString(form.image.trim())}`)
 	if (selectedCategory.value)
 		lines.push(`categories: [${yamlString(selectedCategory.value)}]`)
 	if (tags.value.length)
 		lines.push(`tags: [${tags.value.map(tag => yamlString(tag)).join(', ')}]`)
 	if (form.type && form.type !== defaultArticleType)
 		lines.push(`type: ${yamlString(form.type)}`)
+	if (Number(form.recommend) > 1)
+		lines.push(`recommend: ${Math.round(Number(form.recommend))}`)
 	if (form.draft)
 		lines.push('draft: true')
 
 	lines.push('---', '', form.body.trimEnd(), '')
 	return lines.join('\n')
 })
-const previewBody = computed(() => form.body.trim() || ' ')
+const previewBody = computed(() => {
+	let value = form.body.trim() || ' '
+	for (const [imagePath, previewUrl] of Object.entries(bodyImagePreviewUrls.value))
+		value = value.replaceAll(imagePath, previewUrl)
+	return value
+})
 const previewTypeClass = computed(() => getPostTypeClassName(form.type, { prefix: 'md' }))
+const coverPreviewSrc = computed(() => coverPreviewUrl.value || form.image)
 
-function openDialog(dialog: 'github' | 'posts' | 'meta') {
+function openDialog(dialog: NonNullable<typeof activeDialog.value>) {
 	activeDialog.value = dialog
 }
 
 function closeDialog() {
 	activeDialog.value = null
+	pendingConfirmation.value = null
+}
+
+function requestConfirmation(confirmation: PendingConfirmation) {
+	pendingConfirmation.value = confirmation
+	activeDialog.value = 'confirm'
+}
+
+async function runPendingConfirmation() {
+	const confirmation = pendingConfirmation.value
+	if (!confirmation)
+		return
+	activeDialog.value = null
+	pendingConfirmation.value = null
+	await confirmation.action()
 }
 
 function hasGithubSettings() {
@@ -268,8 +392,25 @@ function loadCustomCategories() {
 		return
 	try {
 		const values = JSON.parse(raw)
-		if (Array.isArray(values))
-			customCategoryOptions.value = values.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+		if (!Array.isArray(values))
+			return
+		const cached = values
+			.map((item): CategoryDefinition | null => {
+				if (typeof item === 'string')
+					return { icon: blogConfig.article.defaultCategoryIcon, name: item.trim() }
+				if (!item || typeof item !== 'object' || typeof item.name !== 'string')
+					return null
+				return {
+					color: typeof item.color === 'string' ? item.color : undefined,
+					icon: typeof item.icon === 'string' && item.icon.trim() ? item.icon.trim() : blogConfig.article.defaultCategoryIcon,
+					name: item.name.trim(),
+				}
+			})
+			.filter((item): item is CategoryDefinition => Boolean(item?.name))
+		const merged = new Map(baseCategoryDefinitions.map(item => [item.name, item]))
+		for (const item of cached)
+			merged.set(item.name, item)
+		categoryDefinitions.value = [...merged.values()]
 	}
 	catch {
 		localStorage.removeItem(customCategoriesKey)
@@ -277,24 +418,43 @@ function loadCustomCategories() {
 }
 
 function cacheCustomCategories() {
-	localStorage.setItem(customCategoriesKey, JSON.stringify(customCategoryOptions.value))
+	localStorage.setItem(customCategoriesKey, JSON.stringify(categoryDefinitions.value))
 }
 
-function addCustomCategory(value: string) {
-	const category = value.trim()
-	if (!category || categoryOptions.value.includes(category))
+function upsertCategory(definition: CategoryDefinition) {
+	const normalized = {
+		color: definition.color?.trim() || undefined,
+		icon: definition.icon.trim() || blogConfig.article.defaultCategoryIcon,
+		name: definition.name.trim(),
+	}
+	if (!normalized.name)
 		return
-	customCategoryOptions.value = [...customCategoryOptions.value, category].sort((a, b) => a.localeCompare(b))
+	const index = categoryDefinitions.value.findIndex(item => item.name === normalized.name)
+	if (index >= 0)
+		categoryDefinitions.value[index] = normalized
+	else
+		categoryDefinitions.value.push(normalized)
+	categoryDefinitions.value.sort((a, b) => a.name.localeCompare(b.name))
 	cacheCustomCategories()
 }
 
-function confirmCustomCategory() {
+async function confirmCustomCategory() {
 	const category = form.customCategory.trim()
 	if (!category)
 		return
-	addCustomCategory(category)
+	upsertCategory({
+		color: form.customCategoryColor,
+		icon: form.customCategoryIcon,
+		name: category,
+	})
 	form.category = category
 	form.customCategory = ''
+	// Keep the category available locally before GitHub is configured.
+	// It can be pushed later from 分类管理 after credentials are supplied.
+	if (canUseGithub.value)
+		await saveCategoryConfig()
+	else
+		statusMessage.value = '分类已添加到本地。配置 GitHub 后可提交到仓库。'
 }
 
 function validatePublish() {
@@ -336,12 +496,14 @@ function clearMessages() {
 function upsertPostListItem(path: string, sha?: string) {
 	const item = {
 		category: selectedCategory.value,
+		date: form.date,
 		draft: form.draft,
 		name: path.split('/').at(-1) || path,
 		path,
+		recommend: Number(form.recommend) > 1 ? Math.round(Number(form.recommend)) : undefined,
 		sha,
+		tags: tags.value,
 		title: form.title.trim() || path.split('/').at(-1)?.replace(mdExtensionRegex, '') || path,
-		date: form.date,
 	}
 	const index = posts.value.findIndex(post => post.path === path)
 	if (index >= 0)
@@ -355,10 +517,13 @@ function getPostSummary(path: string, markdownValue = '') {
 	const fallbackTitle = path.split('/').at(-1)?.replace(mdExtensionRegex, '') || path
 	const { meta } = parseMarkdownContent(markdownValue)
 	const categories = Array.isArray(meta.categories) ? meta.categories : []
+	const postTags = Array.isArray(meta.tags) ? meta.tags.filter((tag): tag is string => typeof tag === 'string') : []
 	return {
 		category: typeof categories[0] === 'string' ? categories[0] : undefined,
 		date: typeof meta.date === 'string' ? meta.date : undefined,
 		draft: meta.draft === true,
+		recommend: parseRecommend(meta.recommend) > 1 ? parseRecommend(meta.recommend) : undefined,
+		tags: postTags,
 		title: typeof meta.title === 'string' ? meta.title : fallbackTitle,
 	}
 }
@@ -378,6 +543,8 @@ async function loadPostSummary(path: string) {
 
 function resetForm() {
 	clearMessages()
+	clearCoverPreviewUrl()
+	clearBodyImagePreviewUrls()
 	isHydratingForm.value = true
 	selectedPostPath.value = ''
 	selectedPostSha.value = ''
@@ -386,12 +553,16 @@ function resetForm() {
 		title: '',
 		slug: defaultSlug(),
 		description: '',
+		image: '',
 		date: localDateTime(),
 		updated: localDateTime(),
 		category: categoryOptions.value.includes('技术') ? '技术' : categoryOptions.value[0],
 		customCategory: '',
+		customCategoryColor: '#64748b',
+		customCategoryIcon: blogConfig.article.defaultCategoryIcon,
 		tags: '',
 		type: defaultArticleType,
+		recommend: 1,
 		draft: false,
 		body: '## 从这里开始\n\n',
 	})
@@ -420,6 +591,10 @@ function encodePath(path: string) {
 
 function encodeBase64(value: string) {
 	const bytes = new TextEncoder().encode(value)
+	return bytesToBase64(bytes)
+}
+
+function bytesToBase64(bytes: Uint8Array) {
 	let binary = ''
 	for (const byte of bytes)
 		binary += String.fromCharCode(byte)
@@ -442,9 +617,24 @@ function parseValue(value: string) {
 		const inner = trimmed.replace(bracketListRegex, '$1').trim()
 		if (!inner)
 			return []
-		return inner.split(tagSplitRegex).map(item => item.trim().replace(surroundingQuoteRegex, '')).filter(Boolean)
+		try {
+			const parsed = JSON.parse(trimmed)
+			if (Array.isArray(parsed))
+				return parsed
+		}
+		catch {
+			// Fall back to a permissive parser for unquoted YAML lists.
+		}
+		return (inner.match(listTokenRegex) || [])
+			.map(item => item.trim().replace(surroundingQuoteRegex, ''))
+			.filter(Boolean)
 	}
 	return trimmed.replace(surroundingQuoteRegex, '')
+}
+
+function parseRecommend(value: unknown) {
+	const parsed = typeof value === 'number' ? value : Number(value)
+	return Number.isFinite(parsed) && parsed > 1 ? Math.round(parsed) : 1
 }
 
 function parseMarkdownContent(value: string) {
@@ -453,7 +643,7 @@ function parseMarkdownContent(value: string) {
 		return { body: value, meta: {} as Record<string, unknown> }
 
 	const meta: Record<string, unknown> = {}
-	for (const line of matched[1].split('\n')) {
+	for (const line of matched[1].split(lineBreakRegex)) {
 		const separatorIndex = line.indexOf(':')
 		if (separatorIndex <= 0)
 			continue
@@ -478,6 +668,8 @@ function applyPostPath(path: string) {
 
 function fillFormFromMarkdown(value: string, path: string) {
 	isHydratingForm.value = true
+	clearCoverPreviewUrl()
+	clearBodyImagePreviewUrls()
 	const { body, meta } = parseMarkdownContent(value)
 	const categories = Array.isArray(meta.categories) ? meta.categories : []
 	const firstCategory = typeof categories[0] === 'string' ? categories[0] : ''
@@ -486,17 +678,23 @@ function fillFormFromMarkdown(value: string, path: string) {
 	Object.assign(form, {
 		title: typeof meta.title === 'string' ? meta.title : '',
 		description: typeof meta.description === 'string' ? meta.description : '',
+		image: typeof meta.image === 'string' ? meta.image : '',
 		date: typeof meta.date === 'string' ? meta.date : localDateTime(),
 		updated: typeof meta.updated === 'string' ? meta.updated : typeof meta.date === 'string' ? meta.date : localDateTime(),
 		category: firstCategory && categoryOptions.value.includes(firstCategory) ? firstCategory : firstCategory ? '__custom' : categoryOptions.value[0],
 		customCategory: firstCategory && !categoryOptions.value.includes(firstCategory) ? firstCategory : '',
 		tags: tagsValue.join(', '),
 		type: typeof meta.type === 'string' ? meta.type : defaultArticleType,
+		recommend: parseRecommend(meta.recommend),
 		draft: meta.draft === true,
 		body: body.trimStart() || '## 从这里开始\n\n',
 	})
-	if (firstCategory && !categoryOptions.value.includes(firstCategory))
-		addCustomCategory(firstCategory)
+	if (firstCategory && !categoryOptions.value.includes(firstCategory)) {
+		upsertCategory({
+			icon: blogConfig.article.defaultCategoryIcon,
+			name: firstCategory,
+		})
+	}
 	applyPostPath(path)
 	nextTick(() => {
 		isHydratingForm.value = false
@@ -615,6 +813,415 @@ async function findExistingSha(path: string) {
 	return result?.sha
 }
 
+function selectPost(path: string) {
+	if (isLoadingPost.value)
+		return
+	void loadPost(path)
+	closeDialog()
+}
+
+function getImageExtension(file: File) {
+	const fromType = imageExtensionMap[file.type]
+	if (fromType)
+		return fromType
+	const fromName = file.name.split('.').at(-1)?.toLowerCase()
+	return fromName || 'jpg'
+}
+
+function getImageUploadPath(file: File) {
+	const year = (form.date || localDateTime()).slice(0, 4)
+	const extension = getImageExtension(file)
+	const fileBaseName = file.name.replace(fileExtensionRegex, '')
+	const articleName = sanitizeFileName(form.slug || form.title || defaultSlug())
+	const imageName = sanitizeFileName(fileBaseName || 'cover')
+	return `public/images/${year}/${articleName}-${imageName}-${Date.now()}.${extension}`
+}
+
+function validateImageFile(file: File) {
+	if (!file.type.startsWith('image/'))
+		return '请选择图片文件。'
+	if (file.size > maxImageSize)
+		return '图片不能超过 8MB。'
+	return ''
+}
+
+async function uploadImageFile(file: File) {
+	const uploadPath = getImageUploadPath(file)
+	const bytes = new Uint8Array(await file.arrayBuffer())
+	const result = await githubRequest<{ content?: { path?: string } }>(`${repoPath.value}/contents/${encodePath(uploadPath)}`, {
+		method: 'PUT',
+		body: JSON.stringify({
+			message: `upload image: ${file.name}`,
+			content: bytesToBase64(bytes),
+			branch: settings.branch.trim(),
+		}),
+	})
+	return `/${(result.content?.path || uploadPath).replace(publicPrefixRegex, '')}`
+}
+
+function triggerImageUpload() {
+	clearMessages()
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再上传图片。'
+		return
+	}
+	imageUploadInput.value?.click()
+}
+
+function clearCoverPreviewUrl() {
+	if (coverPreviewUrl.value)
+		URL.revokeObjectURL(coverPreviewUrl.value)
+	coverPreviewUrl.value = ''
+}
+
+function clearBodyImagePreviewUrls() {
+	for (const previewUrl of Object.values(bodyImagePreviewUrls.value))
+		URL.revokeObjectURL(previewUrl)
+	bodyImagePreviewUrls.value = {}
+}
+
+function clearCoverImage() {
+	clearCoverPreviewUrl()
+	form.image = ''
+}
+
+async function uploadCoverImage(event: Event) {
+	const input = event.target as HTMLInputElement
+	const file = input.files?.[0]
+	input.value = ''
+
+	if (!file)
+		return
+	const invalidMessage = validateImageFile(file)
+	if (invalidMessage) {
+		errorMessage.value = invalidMessage
+		return
+	}
+
+	isUploadingImage.value = true
+	clearMessages()
+	statusMessage.value = '正在上传封面图...'
+
+	try {
+		const imagePath = await uploadImageFile(file)
+		clearCoverPreviewUrl()
+		coverPreviewUrl.value = URL.createObjectURL(file)
+		form.image = imagePath
+		statusMessage.value = `封面图已上传：${imagePath}`
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+	}
+	finally {
+		isUploadingImage.value = false
+	}
+}
+
+function serializeCategoryConfigBlock() {
+	const managed = Object.fromEntries(
+		categoryDefinitions.value
+			.filter(item => item.name !== defaultCategoryName)
+			.map(item => [item.name, {
+				icon: item.icon || blogConfig.article.defaultCategoryIcon,
+				...(item.color ? { color: item.color } : {}),
+			}]),
+	)
+	return [
+		'// BLOG_ADMIN_CATEGORIES_START',
+		`const managedCategories = ${JSON.stringify(managed, null, '\t')} satisfies Record<string, { icon: string, color?: string }>`,
+		'// BLOG_ADMIN_CATEGORIES_END',
+	].join('\n')
+}
+
+function migrateCategoryConfigSource(source: string) {
+	if (categoryConfigBlockRegex.test(source))
+		return source.replace(categoryConfigBlockRegex, serializeCategoryConfigBlock())
+
+	// Older blog.config.ts files do not have the admin markers. Add the managed
+	// object before blogConfig and wire it into article.categories in one commit.
+	const categoriesMatch = source.match(categoriesPropertyRegex)
+	if (!categoriesMatch || categoriesMatch.index === undefined)
+		throw new Error('blog.config.ts 中找不到 article.categories 配置，无法自动迁移。')
+
+	const declarationIndex = source.search(blogConfigDeclarationRegex)
+	if (declarationIndex < 0)
+		throw new Error('blog.config.ts 中找不到 blogConfig 配置，无法自动迁移。')
+
+	const withManagedSpread = source.replace(categoriesPropertyRegex, (match, prefix: string) => `${prefix}\n\t\t\t...managedCategories,`)
+	const insertion = `${serializeCategoryConfigBlock()}\n\n`
+	return `${withManagedSpread.slice(0, declarationIndex)}${insertion}${withManagedSpread.slice(declarationIndex)}`
+}
+
+async function saveCategoryConfig() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再保存分类。'
+		return false
+	}
+
+	isSavingCategories.value = true
+	clearMessages()
+	statusMessage.value = '正在保存分类配置...'
+	try {
+		const path = 'blog.config.ts'
+		const current = await githubRequest<GithubContent>(
+			`${repoPath.value}/contents/${path}?ref=${encodeURIComponent(settings.branch.trim())}`,
+		)
+		const source = decodeBase64(current.content)
+		const nextSource = migrateCategoryConfigSource(source)
+		await githubRequest(`${repoPath.value}/contents/${path}`, {
+			method: 'PUT',
+			body: JSON.stringify({
+				branch: settings.branch.trim(),
+				content: encodeBase64(nextSource),
+				message: 'update blog categories',
+				sha: current.sha,
+			}),
+		})
+		cacheCustomCategories()
+		statusMessage.value = '分类配置已提交，部署完成后前台图标和颜色会同步更新。'
+		return true
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+		return false
+	}
+	finally {
+		isSavingCategories.value = false
+	}
+}
+
+function removeCategory(category: string) {
+	if (category === defaultCategoryName)
+		return
+	const usedCount = posts.value.filter(post => post.category === category).length
+	if (usedCount) {
+		errorMessage.value = `分类“${category}”仍被 ${usedCount} 篇文章使用，不能删除。`
+		return
+	}
+	requestConfirmation({
+		action: async () => {
+			const previousDefinitions = categoryDefinitions.value.map(item => ({ ...item }))
+			categoryDefinitions.value = categoryDefinitions.value.filter(item => item.name !== category)
+			cacheCustomCategories()
+			if (!await saveCategoryConfig()) {
+				categoryDefinitions.value = previousDefinitions
+				cacheCustomCategories()
+			}
+		},
+		confirmLabel: '删除分类',
+		message: `确定删除分类“${category}”吗？`,
+		title: '删除分类',
+	})
+}
+
+function setFormTags(values: string[]) {
+	form.tags = [...new Set(values.map(tag => tag.trim()).filter(Boolean))].join(', ')
+}
+
+function addFormTag(value = tagInput.value) {
+	const additions = value.split(tagSplitRegex).map(tag => tag.trim()).filter(Boolean)
+	if (!additions.length)
+		return
+	setFormTags([...tags.value, ...additions])
+	tagInput.value = ''
+}
+
+function removeFormTag(tag: string) {
+	setFormTags(tags.value.filter(item => item !== tag))
+}
+
+function replaceMarkdownTags(markdownValue: string, nextTags: string[]) {
+	const matched = markdownValue.match(frontmatterRegex)
+	if (!matched)
+		throw new Error('文章缺少可识别的 frontmatter，无法更新标签。')
+	const updated = `updated: ${yamlString(localDateTime())}`
+	let hasUpdated = false
+	const lines = matched[1].split('\n').flatMap((line) => {
+		if (frontmatterTagsLineRegex.test(line))
+			return []
+		if (frontmatterUpdatedLineRegex.test(line)) {
+			hasUpdated = true
+			return [updated]
+		}
+		return [line]
+	})
+	if (!hasUpdated)
+		lines.push(updated)
+	if (nextTags.length)
+		lines.push(`tags: [${nextTags.map(tag => yamlString(tag)).join(', ')}]`)
+	return `---\n${lines.join('\n')}\n---\n${matched[2] || ''}`
+}
+
+function updateManagedTag(target = '') {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再管理标签。'
+		return
+	}
+	const source = managedTag.value.trim()
+	const normalizedTarget = target.trim()
+	if (!source) {
+		errorMessage.value = '请先选择要处理的标签。'
+		return
+	}
+	if (normalizedTarget === source) {
+		errorMessage.value = '新标签与原标签相同。'
+		return
+	}
+	const affected = posts.value.filter(post => post.tags?.includes(source))
+	if (!affected.length) {
+		errorMessage.value = `没有文章使用标签“${source}”。`
+		return
+	}
+	const actionText = normalizedTarget ? `合并到“${normalizedTarget}”` : '删除'
+	requestConfirmation({
+		action: () => performManagedTagUpdate(source, normalizedTarget, affected),
+		confirmLabel: normalizedTarget ? '确认合并' : '确认删除',
+		detail: `影响 ${affected.length} 篇文章，并会逐篇产生 Git commit。`,
+		message: `将标签“${source}”${actionText}。`,
+		title: normalizedTarget ? '合并标签' : '删除标签',
+	})
+}
+
+async function performManagedTagUpdate(source: string, normalizedTarget: string, affected: GithubPost[]) {
+	isUpdatingTags.value = true
+	clearMessages()
+	try {
+		for (const [index, post] of affected.entries()) {
+			statusMessage.value = `正在更新标签 ${index + 1} / ${affected.length}：${post.title}`
+			const current = await githubRequest<GithubContent>(
+				`${repoPath.value}/contents/${encodePath(post.path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
+			)
+			const sourceMarkdown = decodeBase64(current.content)
+			const currentTags = getPostSummary(post.path, sourceMarkdown).tags || []
+			const nextTags = [...new Set(currentTags.flatMap(tag => tag === source ? (normalizedTarget ? [normalizedTarget] : []) : [tag]))]
+			const nextMarkdown = replaceMarkdownTags(sourceMarkdown, nextTags)
+			const result = await githubRequest<{ content?: { sha?: string } }>(`${repoPath.value}/contents/${encodePath(post.path)}`, {
+				method: 'PUT',
+				body: JSON.stringify({
+					branch: settings.branch.trim(),
+					content: encodeBase64(nextMarkdown),
+					message: normalizedTarget ? `merge tag: ${source} -> ${normalizedTarget}` : `remove tag: ${source}`,
+					sha: current.sha,
+				}),
+			})
+			post.tags = nextTags
+			post.sha = result.content?.sha || current.sha
+		}
+		if (selectedPostPath.value && affected.some(post => post.path === selectedPostPath.value)) {
+			const selectedPost = affected.find(post => post.path === selectedPostPath.value)
+			selectedPostSha.value = selectedPost?.sha || selectedPostSha.value
+			setFormTags(tags.value.flatMap(tag => tag === source ? (normalizedTarget ? [normalizedTarget] : []) : [tag]))
+			form.updated = localDateTime()
+		}
+		cachePosts()
+		managedTag.value = normalizedTarget
+		mergedTag.value = ''
+		statusMessage.value = normalizedTarget
+			? `标签“${source}”已合并到“${normalizedTarget}”。`
+			: `标签“${source}”已从 ${affected.length} 篇文章中删除。`
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = '部分文章可能已经提交，请刷新文章列表核对。'
+	}
+	finally {
+		isUpdatingTags.value = false
+	}
+}
+
+async function deleteSelectedPost() {
+	if (!isEditingExisting.value || !selectedPostOriginalPath.value || !selectedPostSha.value)
+		return
+	isDeletingPost.value = true
+	clearMessages()
+	statusMessage.value = '正在删除文章...'
+	const deletedPath = selectedPostOriginalPath.value
+	const deletedTitle = form.title || deletedPath
+	try {
+		await githubRequest(`${repoPath.value}/contents/${encodePath(deletedPath)}`, {
+			method: 'DELETE',
+			body: JSON.stringify({
+				branch: settings.branch.trim(),
+				message: `delete post: ${deletedTitle}`,
+				sha: selectedPostSha.value,
+			}),
+		})
+		posts.value = posts.value.filter(post => post.path !== deletedPath)
+		cachePosts()
+		closeDialog()
+		resetForm()
+		statusMessage.value = `文章“${deletedTitle}”已删除并提交到 GitHub。`
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+	}
+	finally {
+		isDeletingPost.value = false
+	}
+}
+
+function triggerBodyImageUpload() {
+	clearMessages()
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再插入图片。'
+		return
+	}
+	bodyImageUploadInput.value?.click()
+}
+
+async function uploadArticleImage(event: Event) {
+	const input = event.target as HTMLInputElement
+	const file = input.files?.[0]
+	input.value = ''
+
+	if (!file)
+		return
+	const invalidMessage = validateImageFile(file)
+	if (invalidMessage) {
+		errorMessage.value = invalidMessage
+		return
+	}
+
+	isUploadingBodyImage.value = true
+	clearMessages()
+	statusMessage.value = '正在上传正文插图...'
+
+	try {
+		const imagePath = await uploadImageFile(file)
+		const alt = file.name.replace(fileExtensionRegex, '').trim() || '图片'
+		const sizeAttrs = bodyImageWidth.value ? `{width="${bodyImageWidth.value}"}` : ''
+		const markdownImage = `![${alt}](${imagePath})${sizeAttrs}`
+		const textarea = bodyTextarea.value
+		const start = textarea?.selectionStart ?? form.body.length
+		const end = textarea?.selectionEnd ?? start
+		form.body = `${form.body.slice(0, start)}${markdownImage}${form.body.slice(end)}`
+		bodyImagePreviewUrls.value[imagePath] = URL.createObjectURL(file)
+		statusMessage.value = '图片已上传并插入正文。'
+
+		await nextTick()
+		if (textarea) {
+			const cursor = start + markdownImage.length
+			textarea.focus()
+			textarea.setSelectionRange(cursor, cursor)
+		}
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+	}
+	finally {
+		isUploadingBodyImage.value = false
+	}
+}
+
+onBeforeUnmount(() => {
+	clearCoverPreviewUrl()
+	clearBodyImagePreviewUrls()
+})
+
 async function publishPost() {
 	const invalidMessage = validatePublish()
 	if (invalidMessage) {
@@ -694,6 +1301,14 @@ async function publishPost() {
 				<Icon name="ph:files-bold" />
 				<span>文章</span>
 			</button>
+			<button class="secondary-button" type="button" @click="openDialog('categories')">
+				<Icon name="ph:folders-bold" />
+				<span>分类</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openDialog('tags')">
+				<Icon name="ph:tag-bold" />
+				<span>标签</span>
+			</button>
 			<button class="secondary-button" type="button" @click="openDialog('meta')">
 				<Icon name="ph:sliders-horizontal-bold" />
 				<span>设置</span>
@@ -701,6 +1316,10 @@ async function publishPost() {
 			<button class="secondary-button" type="button" @click="resetForm">
 				<Icon name="ph:file-plus-bold" />
 				<span>新建</span>
+			</button>
+			<button v-if="isEditingExisting" class="secondary-button danger-button" type="button" @click="openDialog('delete')">
+				<Icon name="ph:trash-bold" />
+				<span>删除</span>
 			</button>
 			<button class="publish-button" :disabled="isPublishing" type="button" @click="publishPost">
 				<Icon :name="isPublishing ? 'line-md:loading-twotone-loop' : 'ph:paper-plane-tilt-bold'" />
@@ -723,8 +1342,28 @@ async function publishPost() {
 			</div>
 
 			<label class="body-field">
-				<span>正文</span>
-				<textarea v-model="form.body" spellcheck="false" />
+				<div class="field-heading">
+					<span>正文</span>
+					<div class="editor-actions">
+						<select v-model="bodyImageWidth" aria-label="插入图片尺寸">
+							<option v-for="option in bodyImageSizeOptions" :key="option.value" :value="option.value">
+								{{ option.label }}
+							</option>
+						</select>
+						<input
+							ref="bodyImageUploadInput"
+							accept="image/*"
+							class="visually-hidden"
+							type="file"
+							@change="uploadArticleImage"
+						>
+						<button :disabled="!canUseGithub || isUploadingBodyImage" type="button" @click.prevent="triggerBodyImageUpload">
+							<Icon :name="isUploadingBodyImage ? 'line-md:loading-twotone-loop' : 'ph:image-square-bold'" />
+							<span>{{ isUploadingBodyImage ? '上传中' : '插入图片' }}</span>
+						</button>
+					</div>
+				</div>
+				<textarea ref="bodyTextarea" v-model="form.body" spellcheck="false" />
 			</label>
 		</main>
 
@@ -739,6 +1378,7 @@ async function publishPost() {
 						:categories="selectedCategory ? [selectedCategory] : []"
 						:date="form.date"
 						:description="form.description"
+						:image="coverPreviewSrc"
 						:path="previewPath"
 						:title="form.title || '未命名文章'"
 						:updated="form.updated"
@@ -771,8 +1411,8 @@ async function publishPost() {
 			<section class="dialog-panel" :class="`dialog-${activeDialog}`">
 				<header class="dialog-header">
 					<div class="section-heading">
-						<Icon :name="activeDialog === 'github' ? 'ph:github-logo-bold' : activeDialog === 'posts' ? 'ph:files-bold' : 'ph:sliders-horizontal-bold'" />
-						<h2>{{ activeDialog === 'github' ? 'GitHub 配置' : activeDialog === 'posts' ? '文章列表' : '文章设置' }}</h2>
+						<Icon :name="dialogMeta.icon" />
+						<h2>{{ dialogMeta.title }}</h2>
 					</div>
 					<button class="icon-button" type="button" @click="closeDialog">
 						<Icon name="ph:x-bold" />
@@ -803,10 +1443,21 @@ async function publishPost() {
 				</div>
 
 				<div v-else-if="activeDialog === 'posts'" class="dialog-content posts-dialog-content">
+					<div class="segmented-control" aria-label="文章状态筛选">
+						<button :class="{ active: postView === 'all' }" type="button" @click="postView = 'all'">
+							全部 {{ postCounts.all }}
+						</button>
+						<button :class="{ active: postView === 'published' }" type="button" @click="postView = 'published'">
+							已发布 {{ postCounts.published }}
+						</button>
+						<button :class="{ active: postView === 'drafts' }" type="button" @click="postView = 'drafts'">
+							草稿箱 {{ postCounts.drafts }}
+						</button>
+					</div>
 					<div class="dialog-toolbar">
 						<label class="search-field">
 							<Icon name="ph:magnifying-glass-bold" />
-							<input v-model.trim="postSearch" placeholder="搜索标题、分类、日期或路径">
+							<input v-model.trim="postSearch" placeholder="搜索标题、分类、标签、日期或路径">
 						</label>
 						<span class="post-count">{{ postListRange }}</span>
 						<button class="secondary-button" :disabled="!canUseGithub || isLoadingPosts" type="button" @click="loadPosts">
@@ -815,23 +1466,31 @@ async function publishPost() {
 						</button>
 					</div>
 					<div class="post-list dialog-post-list">
-						<button
+						<div
 							v-for="post in pagedPosts"
 							:key="post.path"
 							class="post-item"
 							:class="{ active: post.path === selectedPostPath }"
-							:disabled="isLoadingPost"
-							type="button"
-							@click="loadPost(post.path); closeDialog()"
+							:aria-disabled="isLoadingPost"
+							role="button"
+							tabindex="0"
+							@click="selectPost(post.path)"
+							@keydown.enter.prevent="selectPost(post.path)"
 						>
 							<span>{{ post.title }}</span>
 							<small>
 								<b v-if="post.category">{{ post.category }}</b>
+								<b v-if="post.recommend && post.recommend > 1" class="recommend-badge">权重 {{ post.recommend }}</b>
 								<b v-if="post.draft" class="draft-badge">草稿</b>
 								<time v-if="post.date">{{ post.date }}</time>
 							</small>
 							<em>{{ post.path }}</em>
-						</button>
+							<ul v-if="post.tags?.length" class="post-tags">
+								<li v-for="tag in post.tags" :key="tag">
+									{{ tag }}
+								</li>
+							</ul>
+						</div>
 						<p v-if="!searchedPosts.length" class="empty-text">
 							{{ posts.length ? '没有匹配的文章' : '暂无文章' }}
 						</p>
@@ -845,6 +1504,135 @@ async function publishPost() {
 						<button class="secondary-button" :disabled="postPage >= totalPostPages" type="button" @click="postPage++">
 							<span>下一页</span>
 							<Icon name="ph:caret-right-bold" />
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'categories'" class="dialog-content manager-content">
+					<div class="manager-list category-manager-list">
+						<div v-for="definition in categoryDefinitions" :key="definition.name" class="manager-row category-row">
+							<span class="category-identity">
+								<Icon :name="definition.icon" :style="{ color: definition.color }" />
+								<strong>{{ definition.name }}</strong>
+							</span>
+							<label>
+								<span>图标</span>
+								<input v-model.trim="definition.icon" placeholder="ph:folder-bold">
+							</label>
+							<label>
+								<span>颜色</span>
+								<span class="color-field">
+									<input v-model="definition.color" aria-label="分类颜色" type="color">
+									<input v-model.trim="definition.color" placeholder="#64748b">
+								</span>
+							</label>
+							<button
+								class="icon-button danger-button"
+								:disabled="definition.name === defaultCategoryName || isSavingCategories"
+								title="删除分类"
+								type="button"
+								@click="removeCategory(definition.name)"
+							>
+								<Icon name="ph:trash-bold" />
+							</button>
+						</div>
+					</div>
+					<div class="category-create-row">
+						<label>
+							<span>新增分类</span>
+							<input v-model.trim="form.customCategory" placeholder="例如：旅行">
+						</label>
+						<label>
+							<span>图标</span>
+							<input v-model.trim="form.customCategoryIcon" placeholder="ph:folder-bold">
+						</label>
+						<label>
+							<span>颜色</span>
+							<span class="color-field">
+								<input v-model="form.customCategoryColor" aria-label="新增分类颜色" type="color">
+								<input v-model.trim="form.customCategoryColor" placeholder="#64748b">
+							</span>
+						</label>
+						<button class="secondary-button" :disabled="!form.customCategory.trim() || isSavingCategories" type="button" @click="confirmCustomCategory">
+							<Icon name="ph:plus-bold" />
+							<span>新增分类</span>
+						</button>
+					</div>
+					<div class="manager-footer">
+						<button class="secondary-button" :disabled="!canUseGithub || isSavingCategories" type="button" @click="saveCategoryConfig">
+							<Icon :name="isSavingCategories ? 'line-md:loading-twotone-loop' : 'ph:floppy-disk-bold'" />
+							<span>{{ isSavingCategories ? '保存中' : '保存分类配置' }}</span>
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'tags'" class="dialog-content manager-content">
+					<div class="tag-cloud">
+						<button
+							v-for="item in tagStats"
+							:key="item.name"
+							:class="{ active: managedTag === item.name }"
+							type="button"
+							@click="managedTag = item.name"
+						>
+							<span>{{ item.name }}</span>
+							<small>{{ item.count }}</small>
+						</button>
+						<p v-if="!tagStats.length" class="empty-text">
+							读取文章后可管理标签
+						</p>
+					</div>
+					<div class="tag-merge-panel">
+						<label>
+							<span>当前标签</span>
+							<select v-model="managedTag">
+								<option value="">选择标签</option>
+								<option v-for="item in tagStats" :key="item.name" :value="item.name">{{ item.name }}（{{ item.count }}）</option>
+							</select>
+						</label>
+						<label>
+							<span>合并到</span>
+							<input v-model.trim="mergedTag" list="admin-tag-options" placeholder="已有或新标签">
+						</label>
+						<div class="manager-actions">
+							<button class="secondary-button" :disabled="!canUseGithub || !managedTag || !mergedTag || isUpdatingTags" type="button" @click="updateManagedTag(mergedTag)">
+								<Icon name="ph:arrows-merge-bold" />
+								<span>合并标签</span>
+							</button>
+							<button class="secondary-button danger-button" :disabled="!canUseGithub || !managedTag || isUpdatingTags" type="button" @click="updateManagedTag()">
+								<Icon name="ph:trash-bold" />
+								<span>全局删除</span>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'confirm' && pendingConfirmation" class="dialog-content delete-confirmation">
+					<Icon name="ph:warning-circle-bold" />
+					<p>{{ pendingConfirmation.message }}</p>
+					<small v-if="pendingConfirmation.detail">{{ pendingConfirmation.detail }}</small>
+					<div class="manager-actions">
+						<button class="secondary-button" type="button" @click="closeDialog">
+							取消
+						</button>
+						<button class="secondary-button danger-button" type="button" @click="runPendingConfirmation">
+							<Icon name="ph:check-bold" />
+							<span>{{ pendingConfirmation.confirmLabel }}</span>
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'delete'" class="dialog-content delete-confirmation">
+					<Icon name="ph:warning-circle-bold" />
+					<p>将从仓库删除文章 <strong>{{ form.title }}</strong>，并产生一次 Git commit。</p>
+					<code>{{ selectedPostOriginalPath }}</code>
+					<div class="manager-actions">
+						<button class="secondary-button" type="button" @click="closeDialog">
+							取消
+						</button>
+						<button class="secondary-button danger-button" :disabled="isDeletingPost" type="button" @click="deleteSelectedPost">
+							<Icon :name="isDeletingPost ? 'line-md:loading-twotone-loop' : 'ph:trash-bold'" />
+							<span>{{ isDeletingPost ? '删除中' : '确认删除' }}</span>
 						</button>
 					</div>
 				</div>
@@ -865,14 +1653,25 @@ async function publishPost() {
 							</option>
 						</select>
 					</label>
-					<div v-if="form.category === '__custom'" class="add-category-row">
+					<div v-if="form.category === '__custom'" class="add-category-row wide">
 						<label>
 							<span>新分类</span>
 							<input v-model.trim="form.customCategory" placeholder="例如：旅行">
 						</label>
-						<button class="secondary-button" :disabled="!form.customCategory.trim()" type="button" @click="confirmCustomCategory">
+						<label>
+							<span>图标</span>
+							<input v-model.trim="form.customCategoryIcon" placeholder="ph:folder-bold">
+						</label>
+						<label>
+							<span>颜色</span>
+							<span class="color-field">
+								<input v-model="form.customCategoryColor" aria-label="新分类颜色" type="color">
+								<input v-model.trim="form.customCategoryColor" placeholder="#64748b">
+							</span>
+						</label>
+						<button class="secondary-button" :disabled="!form.customCategory.trim() || isSavingCategories" type="button" @click="confirmCustomCategory">
 							<Icon name="ph:plus-bold" />
-							<span>添加</span>
+							<span>添加并提交</span>
 						</button>
 					</div>
 					<label>
@@ -883,10 +1682,54 @@ async function publishPost() {
 						<span>更新时间</span>
 						<input v-model.trim="form.updated">
 					</label>
-					<label>
+					<div class="tag-editor wide">
 						<span>标签</span>
-						<input v-model.trim="form.tags" placeholder="多个标签用逗号或空格分隔">
+						<div v-if="tags.length" class="selected-tags">
+							<button v-for="tag in tags" :key="tag" :title="`移除 ${tag}`" type="button" @click="removeFormTag(tag)">
+								<span>{{ tag }}</span>
+								<Icon name="ph:x-bold" />
+							</button>
+						</div>
+						<div class="tag-input-row">
+							<input v-model.trim="tagInput" list="admin-tag-options" placeholder="输入标签后按回车" @keydown.enter.prevent="addFormTag()">
+							<button class="icon-button" title="添加标签" type="button" @click="addFormTag()">
+								<Icon name="ph:plus-bold" />
+							</button>
+						</div>
+						<datalist id="admin-tag-options">
+							<option v-for="tag in tagSuggestions" :key="tag" :value="tag" />
+						</datalist>
+					</div>
+					<label>
+						<span>推荐权重</span>
+						<input v-model.number="form.recommend" min="1" placeholder="1" step="1" type="number">
+						<small>默认值为 1，数值越大，被首页轮播抽中的概率越高。</small>
 					</label>
+					<label class="wide">
+						<span>封面图</span>
+						<input v-model.trim="form.image" placeholder="/images/example.png 或 https://example.com/cover.jpg" @input="clearCoverPreviewUrl">
+					</label>
+					<div class="cover-actions wide">
+						<input
+							ref="imageUploadInput"
+							accept="image/*"
+							class="visually-hidden"
+							type="file"
+							@change="uploadCoverImage"
+						>
+						<button class="secondary-button" :disabled="!canUseGithub || isUploadingImage" type="button" @click="triggerImageUpload">
+							<Icon :name="isUploadingImage ? 'line-md:loading-twotone-loop' : 'ph:upload-simple-bold'" />
+							<span>{{ isUploadingImage ? '上传中' : '上传图片' }}</span>
+						</button>
+						<small>会上传到 public/images，并自动填写封面图地址。</small>
+					</div>
+					<div v-if="coverPreviewSrc" class="cover-preview wide">
+						<img :src="coverPreviewSrc" alt="封面图预览">
+						<button class="secondary-button" type="button" @click="clearCoverImage">
+							<Icon name="ph:trash-bold" />
+							<span>移除封面</span>
+						</button>
+					</div>
 					<label class="wide">
 						<span>摘要</span>
 						<textarea v-model="form.description" rows="4" />
@@ -965,6 +1808,11 @@ async function publishPost() {
 	}
 }
 
+.danger-button {
+	border-color: var(--c-error);
+	color: var(--c-error);
+}
+
 .publish-button {
 	min-width: 7.5rem;
 	padding-inline: 1rem;
@@ -979,7 +1827,7 @@ button:disabled {
 
 .workspace {
 	display: grid;
-	grid-template-columns: minmax(34rem, 1fr) minmax(22rem, 0.45fr);
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	gap: 0;
 	min-height: 0;
 }
@@ -1048,6 +1896,15 @@ button:disabled {
 	width: min(48rem, 100%);
 }
 
+.dialog-categories,
+.dialog-tags {
+	width: min(52rem, 100%);
+}
+
+.dialog-delete {
+	width: min(30rem, 100%);
+}
+
 .dialog-meta {
 	width: min(38rem, 100%);
 }
@@ -1070,8 +1927,32 @@ button:disabled {
 }
 
 .posts-dialog-content {
-	grid-template-rows: auto minmax(0, 1fr) auto;
+	grid-template-rows: auto auto minmax(0, 1fr) auto;
 	overflow: hidden;
+}
+
+.segmented-control {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	padding: 0.2rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.45rem;
+	background-color: var(--c-bg-1);
+
+	button {
+		min-height: 2.15rem;
+		padding-inline: 0.5rem;
+		border-radius: 0.35rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		color: var(--c-text-2);
+
+		&.active {
+			box-shadow: var(--box-shadow-1);
+			background-color: var(--ld-bg-card);
+			color: var(--c-primary);
+		}
+	}
 }
 
 .github-form {
@@ -1181,14 +2062,23 @@ textarea {
 
 .post-item {
 	display: grid;
+	align-content: start;
 	gap: 0.2rem;
 	min-height: 4.25rem;
+	height: auto;
+	overflow: visible;
 	padding: 0.65rem 0.8rem;
 	border: 1px solid transparent;
 	border-radius: 0.45rem;
 	background-color: var(--c-bg-1);
 	text-align: start;
 	color: var(--c-text-1);
+	cursor: pointer;
+
+	&[aria-disabled='true'] {
+		cursor: wait;
+		opacity: 0.55;
+	}
 
 	&:hover {
 		background-color: var(--c-primary-soft);
@@ -1228,6 +2118,10 @@ textarea {
 		.draft-badge {
 			color: var(--c-warning);
 		}
+
+		.recommend-badge {
+			color: var(--c-primary);
+		}
 	}
 
 	em {
@@ -1235,6 +2129,21 @@ textarea {
 		font-size: 0.7rem;
 		font-style: normal;
 		color: var(--c-text-3);
+	}
+
+	.post-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin-block-start: 0.15rem;
+
+		li {
+			padding: 0.08rem 0.35rem;
+			border-radius: 0.25rem;
+			background-color: var(--c-bg-soft);
+			font-size: 0.68rem;
+			color: var(--c-text-2);
+		}
 	}
 }
 
@@ -1309,6 +2218,48 @@ textarea {
 	grid-template-rows: auto minmax(0, 1fr);
 	min-height: 0;
 
+	.field-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.editor-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+
+		select {
+			width: auto;
+			height: 2rem;
+			padding-inline: 0.45rem;
+			font-size: 0.78rem;
+		}
+
+		button {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
+			padding: 0.3rem 0.55rem;
+			border: 1px solid var(--c-border);
+			border-radius: 0.4rem;
+			background-color: var(--ld-bg-card);
+			font-size: 0.78rem;
+			color: var(--c-text-2);
+
+			&:hover {
+				border-color: var(--c-primary);
+				color: var(--c-primary);
+			}
+
+			&:disabled {
+				opacity: 0.55;
+				cursor: not-allowed;
+			}
+		}
+	}
+
 	textarea {
 		height: 100%;
 		min-height: 0;
@@ -1330,11 +2281,219 @@ textarea {
 	grid-column: 1 / -1;
 }
 
+.visually-hidden {
+	position: absolute;
+	overflow: hidden;
+	width: 1px;
+	height: 1px;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 .add-category-row {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+	align-items: end;
+	gap: 0.65rem;
+}
+
+.color-field {
+	display: grid;
+	grid-template-columns: 2.5rem minmax(0, 1fr);
+	gap: 0.4rem;
+
+	input[type='color'] {
+		padding: 0.2rem;
+	}
+}
+
+.manager-content {
+	grid-template-rows: minmax(0, 1fr) auto;
+	overflow: hidden;
+}
+
+.manager-list {
+	display: grid;
+	align-content: start;
+	gap: 0.5rem;
+	overflow: auto;
+	min-height: 0;
+	padding-inline-end: 0.2rem;
+}
+
+.manager-row {
+	display: grid;
+	align-items: end;
+	gap: 0.65rem;
+	padding-block: 0.55rem;
+	border-block-end: 1px solid var(--c-border);
+}
+
+.category-row {
+	grid-template-columns: minmax(8rem, 0.8fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+}
+
+.category-create-row {
+	display: grid;
+	grid-template-columns: minmax(8rem, 0.8fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+	align-items: end;
+	gap: 0.65rem;
+	padding-block-start: 0.75rem;
+	border-block-start: 1px solid var(--c-border);
+}
+
+.category-identity {
+	display: flex;
+	align-items: center;
+	align-self: center;
+	gap: 0.5rem;
+	min-width: 0;
+
+	.iconify {
+		flex: none;
+		font-size: 1.25rem;
+	}
+
+	strong {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+}
+
+.manager-footer,
+.manager-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.65rem;
+}
+
+.tag-cloud {
+	display: flex;
+	align-content: flex-start;
+	flex-wrap: wrap;
+	gap: 0.45rem;
+	overflow: auto;
+	min-height: 8rem;
+
+	button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		height: 2rem;
+		padding-inline: 0.65rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.4rem;
+		background-color: var(--c-bg-1);
+		color: var(--c-text-1);
+
+		&.active {
+			border-color: var(--c-primary);
+			background-color: var(--c-primary-soft);
+			color: var(--c-primary);
+		}
+
+		small {
+			color: var(--c-text-3);
+		}
+	}
+}
+
+.tag-merge-panel {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	align-items: end;
+	gap: 0.65rem;
+	padding-block-start: 0.75rem;
+	border-block-start: 1px solid var(--c-border);
+
+	.manager-actions {
+		grid-column: 1 / -1;
+	}
+}
+
+.tag-editor {
+	display: grid;
+	gap: 0.4rem;
+
+	> span {
+		font-size: 0.78rem;
+		color: var(--c-text-2);
+	}
+}
+
+.selected-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+
+	button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		min-height: 1.8rem;
+		padding-inline: 0.5rem;
+		border-radius: 0.35rem;
+		background-color: var(--c-primary-soft);
+		font-size: 0.76rem;
+		color: var(--c-primary);
+	}
+}
+
+.tag-input-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.5rem;
+}
+
+.delete-confirmation {
+	justify-items: center;
+	padding: 1.5rem;
+	text-align: center;
+
+	> .iconify {
+		font-size: 2.5rem;
+		color: var(--c-error);
+	}
+
+	code {
+		max-width: 100%;
+		overflow-wrap: anywhere;
+		font-size: 0.78rem;
+		color: var(--c-text-2);
+	}
+
+	.manager-actions {
+		width: 100%;
+		margin-block-start: 0.5rem;
+	}
+}
+
+.cover-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+
+	> small {
+		font-size: 0.76rem;
+		color: var(--c-text-3);
+	}
+}
+
+.cover-preview {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: end;
 	gap: 0.65rem;
+
+	img {
+		width: 100%;
+		height: 9rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.45rem;
+		background-color: var(--c-bg-1);
+		object-fit: cover;
+	}
 }
 
 .article-preview-section {
@@ -1429,6 +2588,26 @@ textarea {
 	}
 
 	.add-category-row {
+		grid-template-columns: 1fr;
+	}
+
+	.category-row,
+	.category-create-row,
+	.tag-merge-panel {
+		grid-template-columns: 1fr;
+	}
+
+	.tag-merge-panel .manager-actions {
+		grid-column: auto;
+		flex-direction: column;
+	}
+
+	.cover-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.cover-preview {
 		grid-template-columns: 1fr;
 	}
 }

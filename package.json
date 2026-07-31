@@ -11,8 +11,9 @@
   },
   "scripts": {
     "prepare": "pnpm clean && nuxt prepare",
-    "clean": "rimraf .data node_modules/.cache",
+    "clean": "rimraf .nuxt .data node_modules/.cache",
     "dev": "nuxt dev --open",
+    "dev:clean": "pnpm clean && nuxt dev --open",
     "dev:host": "nuxt dev --host",
     "build": "nuxt build",
     "generate": "nuxt generate",

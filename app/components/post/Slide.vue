@@ -4,10 +4,13 @@ import Autoplay from 'embla-carousel-autoplay'
 import emblaCarouselVue from 'embla-carousel-vue'
 import { WheelGesturesPlugin } from 'embla-carousel-wheel-gestures'
 
-defineProps<{ list: ArticleProps[] }>()
+const props = defineProps<{ list: ArticleProps[] }>()
 
 const appConfig = useAppConfig()
 const compConf = computed(() => appConfig.component.slide)
+const selectedIndex = ref(0)
+const scrollSnaps = ref<number[]>([])
+const hasMultipleSlides = computed(() => props.list.length > 1)
 
 // @keep-sorted
 const [carouselEl, carouselApi] = emblaCarouselVue({
@@ -19,6 +22,24 @@ const [carouselEl, carouselApi] = emblaCarouselVue({
 	WheelGesturesPlugin(),
 ])
 
+watch(carouselApi, (api, _, onCleanup) => {
+	if (!api)
+		return
+
+	const updateSelection = () => {
+		selectedIndex.value = api.selectedScrollSnap()
+		scrollSnaps.value = api.scrollSnapList()
+	}
+
+	updateSelection()
+	api.on('select', updateSelection)
+	api.on('reInit', updateSelection)
+	onCleanup(() => {
+		api.off('select', updateSelection)
+		api.off('reInit', updateSelection)
+	})
+})
+
 // 鼠标横向滚动 / Shift + 纵向滚轮事件
 useEventListener(carouselEl, 'wheel', (e) => {
 	const delta = e.deltaX + (e.shiftKey ? e.deltaY : 0)
@@ -26,28 +47,56 @@ useEventListener(carouselEl, 'wheel', (e) => {
 		return
 	delta > 0 ? carouselApi.value?.scrollNext() : carouselApi.value?.scrollPrev()
 }, { passive: true })
+
+function handleKeydown(event: KeyboardEvent) {
+	if (event.key === 'ArrowLeft') {
+		event.preventDefault()
+		carouselApi.value?.scrollPrev()
+	}
+	else if (event.key === 'ArrowRight') {
+		event.preventDefault()
+		carouselApi.value?.scrollNext()
+	}
+}
 </script>
 
 <template>
-<div class="z-slide">
+<section class="z-slide" aria-label="精选文章轮播" aria-roledescription="轮播">
 	<div class="z-slide-header">
-		<span class="title text-creative">精选文章</span>
-		<div class="at-slide-hover">
-			<Icon name="ph:mouse-simple-bold" />
-			按住 Shift 横向滚动
+		<h2 class="title text-creative">
+			精选文章
+		</h2>
+		<div v-if="hasMultipleSlides" class="slide-status">
+			<span aria-live="polite">{{ selectedIndex + 1 }} / {{ list.length }}</span>
+			<div class="slide-dots" aria-label="选择推荐文章">
+				<button
+					v-for="(_, index) in scrollSnaps"
+					:key="index"
+					:aria-label="`转到第 ${index + 1} 篇推荐文章`"
+					:aria-current="index === selectedIndex ? 'true' : undefined"
+					type="button"
+					@click="carouselApi?.scrollTo(index)"
+				/>
+			</div>
 		</div>
 	</div>
 
-	<div ref="carouselEl" class="z-slide-body" dir="ltr">
+	<div ref="carouselEl" class="z-slide-body" dir="ltr" tabindex="0" @keydown="handleKeydown">
 		<div class="slide-list">
 			<UtilLink
 				v-for="(article, index) in list"
-				:key="index"
+				:key="article.path"
+				:aria-label="`${article.title || '未命名文章'}，第 ${index + 1} 篇，共 ${list.length} 篇`"
+				aria-roledescription="幻灯片"
 				class="slide-item"
+				role="group"
 				:title="article.description"
 				:to="article.path"
 			>
-				<NuxtImg class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" />
+				<NuxtImg v-if="article.image" class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" />
+				<div v-else class="cover cover-fallback" aria-hidden="true">
+					<Icon name="ph:article-bold" />
+				</div>
 
 				<div v-if="compConf.showTitle" class="stable-info text-creative">
 					{{ article.title }}
@@ -63,22 +112,22 @@ useEventListener(carouselEl, 'wheel', (e) => {
 		</div>
 
 		<ZButton
+			v-if="hasMultipleSlides"
 			class="carousel-action prev at-slide-hover"
 			aria-label="上一页"
 			icon="ph:caret-left-bold"
-			tabindex="-1"
 			@click="carouselApi?.scrollPrev()"
 		/>
 
 		<ZButton
+			v-if="hasMultipleSlides"
 			class="carousel-action next at-slide-hover"
 			aria-label="下一页"
 			icon="ph:caret-right-bold"
-			tabindex="-1"
 			@click="carouselApi?.scrollNext()"
 		/>
 	</div>
-</div>
+</section>
 </template>
 
 <style lang="scss" scoped>
@@ -107,10 +156,40 @@ useEventListener(carouselEl, 'wheel', (e) => {
 	mask-image: linear-gradient(#FFF, transparent);
 	color: var(--c-text-3);
 
-	>.title {
+	> .title {
+		margin: 0;
 		font-size: 3rem;
 		font-weight: bold;
 		line-height: 1;
+	}
+}
+
+.slide-status {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.slide-dots {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+
+	> button {
+		width: 0.5rem;
+		height: 0.5rem;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background-color: var(--c-text-3);
+		transition: width 0.2s, background-color 0.2s;
+
+		&[aria-current="true"] {
+			width: 1.25rem;
+			border-radius: 0.25rem;
+			background-color: var(--c-primary);
+		}
 	}
 }
 
@@ -123,6 +202,11 @@ useEventListener(carouselEl, 'wheel', (e) => {
 	mask-image: linear-gradient(to var(--end), transparent, #FFF var(--fadeout-width), #FFF calc(100% - var(--fadeout-width)), transparent);
 	cursor: grab;
 	user-select: none;
+
+	&:focus-visible {
+		outline: 2px solid var(--c-primary);
+		outline-offset: 2px;
+	}
 
 	.slide-list {
 		display: flex;
@@ -164,6 +248,15 @@ useEventListener(carouselEl, 'wheel', (e) => {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	> .cover-fallback {
+		display: grid;
+		place-items: center;
+		background-color: var(--c-border);
+		background-image: linear-gradient(135deg, var(--c-bg-2), var(--c-border));
+		font-size: 2.5rem;
+		color: var(--c-text-3);
 	}
 
 	>.stable-info, > .hover-info {

@@ -19,6 +19,7 @@ export interface ArticleSchema {
 	type?: ArticleType
 
 	image?: string
+	/** 首页推荐抽样权重；默认为 1，数值越大被抽中的概率越高 */
 	recommend?: number
 	references?: { title?: string, link?: string }[]
 	/** TODO */
@@ -39,7 +40,7 @@ const articleSchema = z.object({
 	type: z.enum(articleTypes).optional().default(articleTypes[0]),
 
 	image: z.string().optional(),
-	recommend: z.number().optional(),
+	recommend: z.number().int().positive().optional(),
 	references: z.array(z.object({
 		title: z.string().optional(),
 		link: z.string().optional(),

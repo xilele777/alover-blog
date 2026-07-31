@@ -14,7 +14,7 @@ const { data, status } = await useLazyAsyncData(
 	'search',
 	() => queryCollectionSearchSections('content', {
 		ignoredTags: ['pre'],
-	}),
+	}).where('draft', '=', false),
 )
 
 const miniSearch = new MiniSearch({
