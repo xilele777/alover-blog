@@ -1,10 +1,12 @@
 ---
-title: 八股提纲版
-date: 2026-05-28 19:00
-updated: 2026-05-28 19:00
-description: 仅保留题目与分类，适合自测、查漏补缺。
+title: "八股提纲版"
+date: "2026-05-28 19:00"
+updated: "2026-07-31 20:18"
+description: "仅保留题目与分类，适合自测、查漏补缺。"
 categories: ["技术"]
+draft: true
 ---
+
 ## HTML / CSS
 
 ### HTML 基础
