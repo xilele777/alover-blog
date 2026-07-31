@@ -52,6 +52,13 @@ interface PendingConfirmation {
 	title: string
 }
 
+interface StagedChange {
+	content?: string
+	encoding?: 'utf-8' | 'base64'
+	path: string
+	delete?: boolean
+}
+
 const settingsKey = 'blog-admin:github-settings'
 const postsKey = 'blog-admin:posts'
 const customCategoriesKey = 'blog-admin:custom-categories'
@@ -68,6 +75,7 @@ const fileWhitespaceRegex = /\s+/g
 const newlineRegex = /\n/g
 const lineBreakRegex = /\r?\n/
 const encodedSlashRegex = /%2F/g
+const leadingSlashRegex = /^\/+/
 // Markdown files may be committed with either LF or CRLF line endings.
 const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/
 const mdExtensionRegex = /\.md$/
@@ -143,6 +151,8 @@ const accessKeyInput = ref('')
 const accessKeyError = ref('')
 const isAccessReady = ref(false)
 const isAdminUnlocked = ref(false)
+const stagedChanges = ref<StagedChange[]>([])
+const isCommittingChanges = ref(false)
 const bodyImageWidth = ref('')
 
 const posts = ref<GithubPost[]>([])
@@ -156,8 +166,6 @@ const postView = ref<'all' | 'drafts' | 'published'>('all')
 const postPage = ref(1)
 const isLoadingPosts = ref(false)
 const isLoadingPost = ref(false)
-const isPublishing = ref(false)
-const isDeletingPost = ref(false)
 const isSavingCategories = ref(false)
 const isUpdatingTags = ref(false)
 const isUploadingImage = ref(false)
@@ -246,7 +254,7 @@ watch(() => form.title, (title) => {
 })
 
 watch(() => [form.title, form.description, form.image, form.category, form.customCategory, form.tags, form.type, form.recommend, form.draft, form.body], () => {
-	if (isHydratingForm.value || isPublishing.value)
+	if (isHydratingForm.value || isCommittingChanges.value)
 		return
 	form.updated = localDateTime()
 }, { deep: true })
@@ -306,7 +314,6 @@ const previewPath = computed(() => postPath.value.replace(contentPrefixRegex, ''
 
 const isEditingExisting = computed(() => Boolean(selectedPostPath.value && selectedPostSha.value))
 const pathChanged = computed(() => isEditingExisting.value && selectedPostOriginalPath.value !== postPath.value)
-const publishButtonText = computed(() => isEditingExisting.value ? '提交修改' : '提交新文章')
 const postListRange = computed(() => {
 	if (!searchedPosts.value.length)
 		return '0 / 0'
@@ -316,6 +323,8 @@ const postListRange = computed(() => {
 })
 
 const canUseGithub = computed(() => hasGithubSettings())
+const stagedChangeCount = computed(() => stagedChanges.value.length)
+const stagedChangeLabel = computed(() => stagedChangeCount.value ? `提交全部（${stagedChangeCount.value}）` : '提交全部')
 const dialogMeta = computed(() => ({
 	categories: { icon: 'ph:folders-bold', title: '分类管理' },
 	confirm: { icon: 'ph:warning-circle-bold', title: pendingConfirmation.value?.title || '确认操作' },
@@ -646,11 +655,6 @@ function encodePath(path: string) {
 	return encodeURIComponent(path).replace(encodedSlashRegex, '/')
 }
 
-function encodeBase64(value: string) {
-	const bytes = new TextEncoder().encode(value)
-	return bytesToBase64(bytes)
-}
-
 function bytesToBase64(bytes: Uint8Array) {
 	let binary = ''
 	for (const byte of bytes)
@@ -792,6 +796,94 @@ async function githubRequest<T>(path: string, init: RequestInit = {}) {
 	}
 }
 
+function stageChange(change: StagedChange) {
+	const normalizedPath = change.path.replace(leadingSlashRegex, '')
+	const nextChange = { ...change, path: normalizedPath }
+	const index = stagedChanges.value.findIndex(item => item.path === normalizedPath)
+	if (index >= 0)
+		stagedChanges.value[index] = nextChange
+	else
+		stagedChanges.value.push(nextChange)
+}
+
+function getStagedContent(path: string) {
+	const staged = stagedChanges.value.find(item => item.path === path && !item.delete && item.encoding !== 'base64')
+	return staged?.content
+}
+
+function clearStagedChanges() {
+	stagedChanges.value = []
+}
+
+async function commitStagedChanges() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再提交暂存修改。'
+		return
+	}
+	if (!stagedChanges.value.length) {
+		statusMessage.value = '当前没有待提交的修改。'
+		return
+	}
+
+	isCommittingChanges.value = true
+	clearMessages()
+	statusMessage.value = `正在合并提交 ${stagedChanges.value.length} 项修改...`
+	try {
+		const branch = settings.branch.trim()
+		const ref = await githubRequest<{ object?: { sha?: string } }>(`${repoPath.value}/git/ref/heads/${encodeURIComponent(branch)}`)
+		const commitSha = ref.object?.sha
+		if (!commitSha)
+			throw new Error('无法读取当前分支 commit。')
+		const commit = await githubRequest<{ tree?: { sha?: string } }>(`${repoPath.value}/git/commits/${commitSha}`)
+		const treeEntries: Array<{ path: string, mode: '100644', type: 'blob', sha: string | null }> = []
+		for (const change of stagedChanges.value) {
+			if (change.delete) {
+				treeEntries.push({ mode: '100644', path: change.path, sha: null, type: 'blob' })
+				continue
+			}
+			if (!change.content)
+				continue
+			const blob = await githubRequest<{ sha?: string }>(`${repoPath.value}/git/blobs`, {
+				method: 'POST',
+				body: JSON.stringify({ content: change.content, encoding: change.encoding || 'utf-8' }),
+			})
+			if (!blob.sha)
+				throw new Error(`无法创建暂存文件：${change.path}`)
+			treeEntries.push({ mode: '100644', path: change.path, sha: blob.sha, type: 'blob' })
+		}
+		const tree = await githubRequest<{ sha?: string }>(`${repoPath.value}/git/trees`, {
+			method: 'POST',
+			body: JSON.stringify({ base_tree: commit.tree?.sha, tree: treeEntries }),
+		})
+		if (!tree.sha)
+			throw new Error('无法创建暂存文件树。')
+		const nextCommit = await githubRequest<{ sha?: string, html_url?: string }>(`${repoPath.value}/git/commits`, {
+			method: 'POST',
+			body: JSON.stringify({
+				message: `update blog: ${treeEntries.length} staged change${treeEntries.length === 1 ? '' : 's'}`,
+				tree: tree.sha,
+				parents: [commitSha],
+			}),
+		})
+		if (!nextCommit.sha)
+			throw new Error('无法创建 GitHub commit。')
+		await githubRequest(`${repoPath.value}/git/refs/heads/${encodeURIComponent(branch)}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ sha: nextCommit.sha, force: false }),
+		})
+		publishResult.value = { commitUrl: nextCommit.html_url }
+		clearStagedChanges()
+		statusMessage.value = '暂存修改已一次性提交，GitHub Actions 将只触发一次。'
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+	}
+	finally {
+		isCommittingChanges.value = false
+	}
+}
+
 async function loadPosts(options: { silent?: boolean } = {}) {
 	if (!canUseGithub.value)
 		return
@@ -859,17 +951,6 @@ async function loadPost(path: string) {
 	}
 }
 
-async function findExistingSha(path: string) {
-	const result = await githubRequest<GithubContent>(
-		`${repoPath.value}/contents/${encodePath(path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
-	).catch((error) => {
-		if (String(error).includes('GitHub API 404'))
-			return null
-		throw error
-	})
-	return result?.sha
-}
-
 function selectPost(path: string) {
 	if (isLoadingPost.value)
 		return
@@ -905,15 +986,12 @@ function validateImageFile(file: File) {
 async function uploadImageFile(file: File) {
 	const uploadPath = getImageUploadPath(file)
 	const bytes = new Uint8Array(await file.arrayBuffer())
-	const result = await githubRequest<{ content?: { path?: string } }>(`${repoPath.value}/contents/${encodePath(uploadPath)}`, {
-		method: 'PUT',
-		body: JSON.stringify({
-			message: `upload image: ${file.name}`,
-			content: bytesToBase64(bytes),
-			branch: settings.branch.trim(),
-		}),
+	stageChange({
+		content: bytesToBase64(bytes),
+		encoding: 'base64',
+		path: uploadPath,
 	})
-	return `/${(result.content?.path || uploadPath).replace(publicPrefixRegex, '')}`
+	return `/${uploadPath.replace(publicPrefixRegex, '')}`
 }
 
 function triggerImageUpload() {
@@ -1015,33 +1093,22 @@ async function saveCategoryConfig() {
 		errorMessage.value = '请先完成 GitHub 配置，再保存分类。'
 		return false
 	}
-
 	isSavingCategories.value = true
 	clearMessages()
-	statusMessage.value = '正在保存分类配置...'
 	try {
 		const path = 'blog.config.ts'
 		const current = await githubRequest<GithubContent>(
 			`${repoPath.value}/contents/${path}?ref=${encodeURIComponent(settings.branch.trim())}`,
 		)
-		const source = decodeBase64(current.content)
+		const source = getStagedContent(path) || decodeBase64(current.content)
 		const nextSource = migrateCategoryConfigSource(source)
-		await githubRequest(`${repoPath.value}/contents/${path}`, {
-			method: 'PUT',
-			body: JSON.stringify({
-				branch: settings.branch.trim(),
-				content: encodeBase64(nextSource),
-				message: 'update blog categories',
-				sha: current.sha,
-			}),
-		})
+		stageChange({ content: nextSource, path })
 		cacheCustomCategories()
-		statusMessage.value = '分类配置已提交，部署完成后前台图标和颜色会同步更新。'
+		statusMessage.value = '分类配置已暂存，点击“提交全部”后统一发布。'
 		return true
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
-		statusMessage.value = ''
 		return false
 	}
 	finally {
@@ -1135,7 +1202,7 @@ function updateManagedTag(target = '') {
 	requestConfirmation({
 		action: () => performManagedTagUpdate(source, normalizedTarget, affected),
 		confirmLabel: normalizedTarget ? '确认合并' : '确认删除',
-		detail: `影响 ${affected.length} 篇文章，并会逐篇产生 Git commit。`,
+		detail: `影响 ${affected.length} 篇文章，修改会暂存到“提交全部”。`,
 		message: `将标签“${source}”${actionText}。`,
 		title: normalizedTarget ? '合并标签' : '删除标签',
 	})
@@ -1150,21 +1217,13 @@ async function performManagedTagUpdate(source: string, normalizedTarget: string,
 			const current = await githubRequest<GithubContent>(
 				`${repoPath.value}/contents/${encodePath(post.path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
 			)
-			const sourceMarkdown = decodeBase64(current.content)
+			const sourceMarkdown = getStagedContent(post.path) || decodeBase64(current.content)
 			const currentTags = getPostSummary(post.path, sourceMarkdown).tags || []
 			const nextTags = [...new Set(currentTags.flatMap(tag => tag === source ? (normalizedTarget ? [normalizedTarget] : []) : [tag]))]
 			const nextMarkdown = replaceMarkdownTags(sourceMarkdown, nextTags)
-			const result = await githubRequest<{ content?: { sha?: string } }>(`${repoPath.value}/contents/${encodePath(post.path)}`, {
-				method: 'PUT',
-				body: JSON.stringify({
-					branch: settings.branch.trim(),
-					content: encodeBase64(nextMarkdown),
-					message: normalizedTarget ? `merge tag: ${source} -> ${normalizedTarget}` : `remove tag: ${source}`,
-					sha: current.sha,
-				}),
-			})
+			stageChange({ content: nextMarkdown, path: post.path })
 			post.tags = nextTags
-			post.sha = result.content?.sha || current.sha
+			post.sha = current.sha
 		}
 		if (selectedPostPath.value && affected.some(post => post.path === selectedPostPath.value)) {
 			const selectedPost = affected.find(post => post.path === selectedPostPath.value)
@@ -1176,12 +1235,12 @@ async function performManagedTagUpdate(source: string, normalizedTarget: string,
 		managedTag.value = normalizedTarget
 		mergedTag.value = ''
 		statusMessage.value = normalizedTarget
-			? `标签“${source}”已合并到“${normalizedTarget}”。`
-			: `标签“${source}”已从 ${affected.length} 篇文章中删除。`
+			? `标签“${source}”已暂存合并到“${normalizedTarget}”。`
+			: `标签“${source}”的删除已暂存，共 ${affected.length} 篇文章。`
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
-		statusMessage.value = '部分文章可能已经提交，请刷新文章列表核对。'
+		statusMessage.value = '部分修改可能已经暂存，请检查待提交数量后重试。'
 	}
 	finally {
 		isUpdatingTags.value = false
@@ -1191,33 +1250,40 @@ async function performManagedTagUpdate(source: string, normalizedTarget: string,
 async function deleteSelectedPost() {
 	if (!isEditingExisting.value || !selectedPostOriginalPath.value || !selectedPostSha.value)
 		return
-	isDeletingPost.value = true
 	clearMessages()
-	statusMessage.value = '正在删除文章...'
 	const deletedPath = selectedPostOriginalPath.value
 	const deletedTitle = form.title || deletedPath
 	try {
-		await githubRequest(`${repoPath.value}/contents/${encodePath(deletedPath)}`, {
-			method: 'DELETE',
-			body: JSON.stringify({
-				branch: settings.branch.trim(),
-				message: `delete post: ${deletedTitle}`,
-				sha: selectedPostSha.value,
-			}),
-		})
+		stageChange({ delete: true, path: deletedPath })
 		posts.value = posts.value.filter(post => post.path !== deletedPath)
 		cachePosts()
 		closeDialog()
 		resetForm()
-		statusMessage.value = `文章“${deletedTitle}”已删除并提交到 GitHub。`
+		statusMessage.value = `文章“${deletedTitle}”的删除已暂存，点击“提交全部”后统一发布。`
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
-		statusMessage.value = ''
 	}
-	finally {
-		isDeletingPost.value = false
+}
+
+function stageArticle() {
+	const invalidMessage = validatePublish()
+	if (invalidMessage) {
+		errorMessage.value = invalidMessage
+		return
 	}
+	form.updated = localDateTime()
+	const targetPath = postPath.value
+	if (isEditingExisting.value && pathChanged.value) {
+		errorMessage.value = '当前修改会改变文件路径。请先保持文件名和日期不变，或新建文章暂存。'
+		return
+	}
+	stageChange({ content: markdown.value, path: targetPath })
+	selectedPostPath.value = targetPath
+	selectedPostOriginalPath.value = targetPath
+	upsertPostListItem(targetPath, selectedPostSha.value)
+	cachePosts()
+	statusMessage.value = '文章修改已暂存，点击“提交全部”后统一发布。'
 }
 
 function triggerBodyImageUpload() {
@@ -1278,64 +1344,6 @@ onBeforeUnmount(() => {
 	clearCoverPreviewUrl()
 	clearBodyImagePreviewUrls()
 })
-
-async function publishPost() {
-	const invalidMessage = validatePublish()
-	if (invalidMessage) {
-		errorMessage.value = invalidMessage
-		return
-	}
-
-	isPublishing.value = true
-	clearMessages()
-	statusMessage.value = isEditingExisting.value
-		? `正在向 ${settings.branch.trim()} 分支提交修改...`
-		: `正在向 ${settings.branch.trim()} 分支提交新文章...`
-	form.updated = localDateTime()
-
-	try {
-		const targetPath = postPath.value
-		let sha = !pathChanged.value && isEditingExisting.value ? selectedPostSha.value : undefined
-
-		if (!sha)
-			sha = await findExistingSha(targetPath)
-
-		if (!sha && isEditingExisting.value && pathChanged.value)
-			throw new Error('当前修改会改变文件路径。请先保持文件名和日期不变，或新建文章发布。')
-
-		const result = await githubRequest<{
-			content?: { html_url?: string, path?: string, sha?: string }
-			commit?: { html_url?: string }
-		}>(`${repoPath.value}/contents/${encodePath(targetPath)}`, {
-			method: 'PUT',
-			body: JSON.stringify({
-				message: `${sha ? 'update' : 'add'} post: ${form.title.trim()}`,
-				content: encodeBase64(markdown.value),
-				branch: settings.branch.trim(),
-				sha,
-			}),
-		})
-
-		selectedPostPath.value = result.content?.path || targetPath
-		selectedPostOriginalPath.value = selectedPostPath.value
-		selectedPostSha.value = result.content?.sha || selectedPostSha.value
-		publishResult.value = {
-			commitUrl: result.commit?.html_url,
-			htmlUrl: result.content?.html_url,
-			path: result.content?.path || targetPath,
-		}
-		upsertPostListItem(selectedPostPath.value, selectedPostSha.value)
-		cachePosts()
-		statusMessage.value = '已生成 GitHub commit，GitHub Actions 会自动开始部署。'
-	}
-	catch (error) {
-		errorMessage.value = error instanceof Error ? error.message : String(error)
-		statusMessage.value = ''
-	}
-	finally {
-		isPublishing.value = false
-	}
-}
 </script>
 
 <template>
@@ -1408,9 +1416,13 @@ async function publishPost() {
 				<Icon name="ph:trash-bold" />
 				<span>删除</span>
 			</button>
-			<button class="publish-button" :disabled="isPublishing" type="button" @click="publishPost">
-				<Icon :name="isPublishing ? 'line-md:loading-twotone-loop' : 'ph:paper-plane-tilt-bold'" />
-				<span>{{ publishButtonText }}</span>
+			<button class="publish-button" :disabled="isCommittingChanges || !stagedChangeCount" type="button" @click="commitStagedChanges">
+				<Icon :name="isCommittingChanges ? 'line-md:loading-twotone-loop' : 'ph:paper-plane-tilt-bold'" />
+				<span>{{ isCommittingChanges ? '提交中' : stagedChangeLabel }}</span>
+			</button>
+			<button class="secondary-button" type="button" @click="stageArticle">
+				<Icon name="ph:tray-arrow-down-bold" />
+				<span>暂存文章</span>
 			</button>
 		</div>
 	</header>
@@ -1648,7 +1660,7 @@ async function publishPost() {
 					<div class="manager-footer">
 						<button class="secondary-button" :disabled="!canUseGithub || isSavingCategories" type="button" @click="saveCategoryConfig">
 							<Icon :name="isSavingCategories ? 'line-md:loading-twotone-loop' : 'ph:floppy-disk-bold'" />
-							<span>{{ isSavingCategories ? '保存中' : '保存分类配置' }}</span>
+							<span>{{ isSavingCategories ? '暂存中' : '暂存分类配置' }}</span>
 						</button>
 					</div>
 				</div>
@@ -1711,15 +1723,15 @@ async function publishPost() {
 
 				<div v-else-if="activeDialog === 'delete'" class="dialog-content delete-confirmation">
 					<Icon name="ph:warning-circle-bold" />
-					<p>将从仓库删除文章 <strong>{{ form.title }}</strong>，并产生一次 Git commit。</p>
+					<p>将暂存删除文章 <strong>{{ form.title }}</strong>，点击“提交全部”后统一发布。</p>
 					<code>{{ selectedPostOriginalPath }}</code>
 					<div class="manager-actions">
 						<button class="secondary-button" type="button" @click="closeDialog">
 							取消
 						</button>
-						<button class="secondary-button danger-button" :disabled="isDeletingPost" type="button" @click="deleteSelectedPost">
-							<Icon :name="isDeletingPost ? 'line-md:loading-twotone-loop' : 'ph:trash-bold'" />
-							<span>{{ isDeletingPost ? '删除中' : '确认删除' }}</span>
+						<button class="secondary-button danger-button" type="button" @click="deleteSelectedPost">
+							<Icon name="ph:trash-bold" />
+							<span>确认暂存删除</span>
 						</button>
 					</div>
 				</div>
