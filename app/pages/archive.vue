@@ -17,7 +17,8 @@ const { panelTranslate } = storeToRefs(layoutStore)
 layoutStore.setAside(['blog-stats', 'blog-log'])
 
 const { data: listRaw } = await useAsyncData('index_posts', () => useArticleIndexOptions(), { default: () => [] })
-const { listSorted, isAscending, sortOrder } = useArticleSort(listRaw)
+const listPublished = usePublishedArticles(listRaw)
+const { listSorted, isAscending, sortOrder } = useArticleSort(listPublished)
 const { category, categories, listCategorized } = useCategory(listSorted)
 
 const listGrouped = computed(() => {
