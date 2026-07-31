@@ -27,12 +27,45 @@ const basicConfig = {
 // 存储 nuxt.config 和 app.config 共用的配置
 // 此处为启动时需要的配置，启动后可变配置位于 app/app.config.ts
 // @keep-sorted
+// BLOG_ADMIN_CATEGORIES_START
+const managedCategories = {
+	"11": {
+		"icon": "ph:folder-bold",
+		"color": "#64748b"
+	},
+	"记录": {
+		"icon": "ph:note-bold",
+		"color": "#a855f7"
+	},
+	"技术": {
+		"icon": "ph:mouse-bold",
+		"color": "#33aaff"
+	},
+	"旅行": {
+		"icon": "ph:folder-bold"
+	},
+	"生活": {
+		"icon": "ph:shooting-star-bold",
+		"color": "#ff7777"
+	},
+	"说明书": {
+		"icon": "ph:book-open-bold",
+		"color": "#06b6d4"
+	},
+	"杂谈": {
+		"icon": "ph:chat-bold",
+		"color": "#33bbaa"
+	}
+} satisfies Record<string, { icon: string, color?: string }>
+// BLOG_ADMIN_CATEGORIES_END
+
 const blogConfig = {
 	...basicConfig,
 
 	article: {
 		categories: {
-			[basicConfig.defaultCategory]: { icon: 'ph:folder-dotted-bold' },
+			
+			...managedCategories,[basicConfig.defaultCategory]: { icon: 'ph:folder-dotted-bold' },
 			/** 实践可复用操作经验：工具/系统/部署/排障 */
 			技术: { icon: 'ph:mouse-bold', color: '#33aaff' },
 			/** 思考：观点讨论/复盘反思/行业或产品观察 */
