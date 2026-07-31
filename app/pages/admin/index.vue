@@ -883,6 +883,10 @@ async function publishPost() {
 						<span>更新时间</span>
 						<input v-model.trim="form.updated">
 					</label>
+					<label>
+						<span>标签</span>
+						<input v-model.trim="form.tags" placeholder="多个标签用逗号或空格分隔">
+					</label>
 					<label class="wide">
 						<span>摘要</span>
 						<textarea v-model="form.description" rows="4" />

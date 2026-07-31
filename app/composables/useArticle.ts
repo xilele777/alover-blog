@@ -11,8 +11,12 @@ export function useArticleIndexOptions(path = 'posts/%') {
 	return queryCollection('content')
 		.where('stem', 'LIKE', path)
 		.where('draft', '=', false)
-		.select('categories', 'date', 'description', 'image', 'path', 'readingTime', 'recommend', 'tags', 'title', 'type', 'updated')
+		.select('categories', 'date', 'description', 'draft', 'image', 'path', 'readingTime', 'recommend', 'tags', 'title', 'type', 'updated')
 		.all()
+}
+
+export function usePublishedArticles(list: MaybeRefOrGetter<ArticleProps[]>) {
+	return computed(() => toValue(list).filter(item => item.draft !== true))
 }
 
 interface UseCategoryOptions {

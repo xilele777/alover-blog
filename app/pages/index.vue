@@ -11,7 +11,8 @@ const layoutStore = useLayoutStore()
 layoutStore.setAside(['blog-stats'])
 
 const { data: listRaw } = await useAsyncData('index_posts', () => useArticleIndexOptions(), { default: () => [] })
-const { listSorted, isAscending, sortOrder } = useArticleSort(listRaw, { bindDirectionQuery: 'asc', bindOrderQuery: 'sort' })
+const listPublished = usePublishedArticles(listRaw)
+const { listSorted, isAscending, sortOrder } = useArticleSort(listPublished, { bindDirectionQuery: 'asc', bindOrderQuery: 'sort' })
 const { category, categories, listCategorized } = useCategory(listSorted, { bindQuery: 'category' })
 const { page, totalPages, listPaged } = usePagination(listCategorized, { bindQuery: 'page' })
 
@@ -22,7 +23,7 @@ watch(category, () => {
 useSeoMeta({ title: () => (page.value > 1 ? `第${page.value}页` : '') })
 
 const listRecommended = computed(() => sort(
-	listRaw.value.filter(item => item?.recommend),
+	listPublished.value.filter(item => item?.recommend),
 	post => post.recommend || 0,
 	true,
 ))
