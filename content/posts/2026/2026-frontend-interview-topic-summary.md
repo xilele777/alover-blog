@@ -1,9 +1,10 @@
 ---
-title: 常见问题分类汇总
-date: 2026-05-28 20:00
-updated: 2026-05-28 20:00
-description: 本汇总基于搜集的 139 份 2026 前端面经整理，按问题类别归纳高频考点。
+title: "常见问题分类汇总"
+date: "2026-05-28 20:00"
+updated: "2026-07-31 20:19"
+description: "本汇总基于搜集的 139 份 2026 前端面经整理，按问题类别归纳高频考点。"
 categories: ["技术"]
+draft: true
 ---
 
 ## 高频趋势
@@ -386,4 +387,3 @@ categories: ["技术"]
 - WebAssembly、RxJS、OpenSeadragon / Deep Zoom Image、音视频码率自适应。
 - 金融、内容、电商、AI Agent、SaaS、小程序国际化等业务场景题。
 - HR 开放题和职业规划问题。
-
