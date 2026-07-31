@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { sort } from 'radash'
-
 const appConfig = useAppConfig()
+const recommendationSeed = useState('recommendation-seed', () => Math.random().toString(36).slice(2))
 useSeoMeta({
 	description: appConfig.description,
 	ogImage: appConfig.author.avatar,
@@ -22,10 +21,33 @@ watch(category, () => {
 
 useSeoMeta({ title: () => (page.value > 1 ? `第${page.value}页` : '') })
 
-const listRecommended = computed(() => sort(
-	listPublished.value.filter(item => item?.recommend),
-	post => post.recommend || 0,
-	true,
+function createSeededRandom(seed: string) {
+	let state = [...seed].reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 16777619), 2166136261)
+	return () => {
+		state += 0x6D2B79F5
+		let value = state
+		value = Math.imul(value ^ (value >>> 15), value | 1)
+		value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
+		return ((value ^ (value >>> 14)) >>> 0) / 4294967296
+	}
+}
+
+function weightedSample<T extends { path: string, recommend?: number }>(list: T[], limit: number, seed: string) {
+	const random = createSeededRandom(seed)
+	return list
+		.map(item => ({
+			item,
+			key: random() ** (1 / Math.max(1, item.recommend || 1)),
+		}))
+		.sort((a, b) => b.key - a.key)
+		.slice(0, limit)
+		.map(({ item }) => item)
+}
+
+const listRecommended = computed(() => weightedSample(
+	listPublished.value,
+	appConfig.component.slide.maxItems,
+	recommendationSeed.value,
 ))
 </script>
 

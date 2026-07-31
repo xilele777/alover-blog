@@ -29,33 +29,33 @@ const basicConfig = {
 // @keep-sorted
 // BLOG_ADMIN_CATEGORIES_START
 const managedCategories = {
-	"11": {
-		"icon": "ph:folder-bold",
-		"color": "#64748b"
+	11: {
+		icon: 'ph:folder-bold',
+		color: '#64748b',
 	},
-	"记录": {
-		"icon": "ph:note-bold",
-		"color": "#a855f7"
+	技术: {
+		icon: 'ph:mouse-bold',
+		color: '#33aaff',
 	},
-	"技术": {
-		"icon": "ph:mouse-bold",
-		"color": "#33aaff"
+	旅行: {
+		icon: 'ph:folder-bold',
 	},
-	"旅行": {
-		"icon": "ph:folder-bold"
+	杂谈: {
+		icon: 'ph:chat-bold',
+		color: '#33bbaa',
 	},
-	"生活": {
-		"icon": "ph:shooting-star-bold",
-		"color": "#ff7777"
+	生活: {
+		icon: 'ph:shooting-star-bold',
+		color: '#ff7777',
 	},
-	"说明书": {
-		"icon": "ph:book-open-bold",
-		"color": "#06b6d4"
+	记录: {
+		icon: 'ph:note-bold',
+		color: '#a855f7',
 	},
-	"杂谈": {
-		"icon": "ph:chat-bold",
-		"color": "#33bbaa"
-	}
+	说明书: {
+		icon: 'ph:book-open-bold',
+		color: '#06b6d4',
+	},
 } satisfies Record<string, { icon: string, color?: string }>
 // BLOG_ADMIN_CATEGORIES_END
 
@@ -64,18 +64,8 @@ const blogConfig = {
 
 	article: {
 		categories: {
-			
-			...managedCategories,[basicConfig.defaultCategory]: { icon: 'ph:folder-dotted-bold' },
-			/** 实践可复用操作经验：工具/系统/部署/排障 */
-			技术: { icon: 'ph:mouse-bold', color: '#33aaff' },
-			/** 思考：观点讨论/复盘反思/行业或产品观察 */
-			杂谈: { icon: 'ph:chat-bold', color: '#33bbaa' },
-			/** 记录叙事：个人经历/校园家庭/日常片段 */
-			生活: { icon: 'ph:shooting-star-bold', color: '#ff7777' },
-			/** 记录日常、演出等内容 */
-			记录: { icon: 'ph:note-bold', color: '#a855f7' },
-			/** 说明书、使用指南等 */
-			说明书: { icon: 'ph:book-open-bold', color: '#06b6d4' },
+			[basicConfig.defaultCategory]: { icon: 'ph:folder-dotted-bold' },
+			...managedCategories,
 		},
 		defaultCategoryIcon: 'ph:folder-bold',
 		/** 文章版式，首个为默认版式 */
@@ -94,7 +84,7 @@ const blogConfig = {
 		/** 隐藏基于文件路由（不是自定义链接）的 URL /post 路径前缀 */
 		hidePostPrefix: true,
 		/** 禁止搜索引擎收录的路径 */
-		robotsNotIndex: ['/preview', '/previews/*'],
+		robotsNotIndex: ['/admin', '/preview', '/previews/*'],
 	},
 
 	/** 博客 Atom 订阅源 */
