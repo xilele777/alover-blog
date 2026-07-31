@@ -131,6 +131,12 @@ const form = reactive({
 	draft: false,
 	body: '',
 })
+
+const categoryDraft = reactive({
+	name: '',
+	color: '#64748b',
+	icon: blogConfig.article.defaultCategoryIcon,
+})
 const bodyImageWidth = ref('')
 
 const posts = ref<GithubPost[]>([])
@@ -438,23 +444,48 @@ function upsertCategory(definition: CategoryDefinition) {
 	cacheCustomCategories()
 }
 
-async function confirmCustomCategory() {
-	const category = form.customCategory.trim()
+async function createCategory(definition: CategoryDefinition) {
+	const category = definition.name.trim()
 	if (!category)
-		return
+		return false
 	upsertCategory({
+		color: definition.color,
+		icon: definition.icon,
+		name: category,
+	})
+	// Keep the category available locally before GitHub is configured.
+	// It can be pushed later from 分类管理 after credentials are supplied.
+	if (canUseGithub.value)
+		return await saveCategoryConfig()
+
+	statusMessage.value = '分类已添加到本地。配置 GitHub 后可提交到仓库。'
+	return true
+}
+
+async function confirmArticleCategory() {
+	const category = form.customCategory.trim()
+	const saved = await createCategory({
 		color: form.customCategoryColor,
 		icon: form.customCategoryIcon,
 		name: category,
 	})
+	if (!saved)
+		return
 	form.category = category
 	form.customCategory = ''
-	// Keep the category available locally before GitHub is configured.
-	// It can be pushed later from 分类管理 after credentials are supplied.
-	if (canUseGithub.value)
-		await saveCategoryConfig()
-	else
-		statusMessage.value = '分类已添加到本地。配置 GitHub 后可提交到仓库。'
+}
+
+async function confirmManagedCategory() {
+	const saved = await createCategory({
+		color: categoryDraft.color,
+		icon: categoryDraft.icon,
+		name: categoryDraft.name,
+	})
+	if (!saved)
+		return
+	categoryDraft.name = ''
+	categoryDraft.color = '#64748b'
+	categoryDraft.icon = blogConfig.article.defaultCategoryIcon
 }
 
 function validatePublish() {
@@ -1540,20 +1571,20 @@ async function publishPost() {
 					<div class="category-create-row">
 						<label>
 							<span>新增分类</span>
-							<input v-model.trim="form.customCategory" placeholder="例如：旅行">
+							<input v-model.trim="categoryDraft.name" placeholder="例如：旅行">
 						</label>
 						<label>
 							<span>图标</span>
-							<input v-model.trim="form.customCategoryIcon" placeholder="ph:folder-bold">
+							<input v-model.trim="categoryDraft.icon" placeholder="ph:folder-bold">
 						</label>
 						<label>
 							<span>颜色</span>
 							<span class="color-field">
-								<input v-model="form.customCategoryColor" aria-label="新增分类颜色" type="color">
-								<input v-model.trim="form.customCategoryColor" placeholder="#64748b">
+								<input v-model="categoryDraft.color" aria-label="新增分类颜色" type="color">
+								<input v-model.trim="categoryDraft.color" placeholder="#64748b">
 							</span>
 						</label>
-						<button class="secondary-button" :disabled="!form.customCategory.trim() || isSavingCategories" type="button" @click="confirmCustomCategory">
+						<button class="secondary-button" :disabled="!categoryDraft.name.trim() || isSavingCategories" type="button" @click="confirmManagedCategory">
 							<Icon name="ph:plus-bold" />
 							<span>新增分类</span>
 						</button>
@@ -1669,9 +1700,9 @@ async function publishPost() {
 								<input v-model.trim="form.customCategoryColor" placeholder="#64748b">
 							</span>
 						</label>
-						<button class="secondary-button" :disabled="!form.customCategory.trim() || isSavingCategories" type="button" @click="confirmCustomCategory">
+						<button class="secondary-button" :disabled="!form.customCategory.trim() || isSavingCategories" type="button" @click="confirmArticleCategory">
 							<Icon name="ph:plus-bold" />
-							<span>添加并提交</span>
+							<span>新增分类</span>
 						</button>
 					</div>
 					<label>
@@ -2056,28 +2087,30 @@ textarea {
 .post-list {
 	display: grid;
 	align-content: start;
+	grid-auto-rows: max-content;
 	gap: 0.45rem;
 	min-height: 0;
 }
 
 .post-item {
-	display: grid;
-	align-content: start;
-	gap: 0.2rem;
-	min-height: 4.25rem;
-	height: auto;
-	overflow: visible;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.18rem;
+	overflow: hidden;
+	min-height: 5.25rem;
 	padding: 0.65rem 0.8rem;
 	border: 1px solid transparent;
 	border-radius: 0.45rem;
 	background-color: var(--c-bg-1);
+	line-height: 1.35;
 	text-align: start;
 	color: var(--c-text-1);
 	cursor: pointer;
 
-	&[aria-disabled='true'] {
-		cursor: wait;
+	&[aria-disabled="true"] {
 		opacity: 0.55;
+		cursor: wait;
 	}
 
 	&:hover {
@@ -2095,7 +2128,9 @@ textarea {
 	span,
 	small,
 	em {
+		display: block;
 		overflow: hidden;
+		min-width: 0;
 		white-space: nowrap;
 		text-overflow: ellipsis;
 	}
@@ -2106,13 +2141,23 @@ textarea {
 
 	small {
 		display: flex;
+		align-items: center;
 		gap: 0.5rem;
+		min-height: 1rem;
 		font-size: 0.72rem;
+		white-space: nowrap;
 		color: var(--c-text-3);
 
 		b {
+			flex: none;
 			font-weight: 700;
 			color: var(--c-primary);
+		}
+
+		time {
+			overflow: hidden;
+			min-width: 0;
+			text-overflow: ellipsis;
 		}
 
 		.draft-badge {
@@ -2135,9 +2180,12 @@ textarea {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.25rem;
+		min-height: 1.2rem;
+		overflow: hidden;
 		margin-block-start: 0.15rem;
 
 		li {
+			flex: none;
 			padding: 0.08rem 0.35rem;
 			border-radius: 0.25rem;
 			background-color: var(--c-bg-soft);
