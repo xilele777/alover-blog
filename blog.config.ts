@@ -33,9 +33,6 @@ const managedCategories = {
 		"icon": "ph:mouse-bold",
 		"color": "#33aaff"
 	},
-	"旅行": {
-		"icon": "ph:folder-bold"
-	},
 	"杂谈": {
 		"icon": "ph:chat-bold",
 		"color": "#33bbaa"
