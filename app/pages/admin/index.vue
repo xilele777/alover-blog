@@ -63,7 +63,7 @@ const customCategoryOptions = ref<string[]>([])
 const categoryOptions = computed(() => [...new Set([...baseCategoryOptions, ...customCategoryOptions.value])])
 const settings = reactive<GithubSettings>({
 	owner: 'xilele777',
-	repo: 'my_blogs_pro',
+	repo: 'alover-blog',
 	branch: 'main',
 	token: '',
 })
