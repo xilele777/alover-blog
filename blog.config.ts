@@ -29,33 +29,29 @@ const basicConfig = {
 // @keep-sorted
 // BLOG_ADMIN_CATEGORIES_START
 const managedCategories = {
-	11: {
-		icon: 'ph:folder-bold',
-		color: '#64748b',
+	"技术": {
+		"icon": "ph:mouse-bold",
+		"color": "#33aaff"
 	},
-	技术: {
-		icon: 'ph:mouse-bold',
-		color: '#33aaff',
+	"旅行": {
+		"icon": "ph:folder-bold"
 	},
-	旅行: {
-		icon: 'ph:folder-bold',
+	"杂谈": {
+		"icon": "ph:chat-bold",
+		"color": "#33bbaa"
 	},
-	杂谈: {
-		icon: 'ph:chat-bold',
-		color: '#33bbaa',
+	"生活": {
+		"icon": "ph:shooting-star-bold",
+		"color": "#ff7777"
 	},
-	生活: {
-		icon: 'ph:shooting-star-bold',
-		color: '#ff7777',
+	"记录": {
+		"icon": "ph:note-bold",
+		"color": "#a855f7"
 	},
-	记录: {
-		icon: 'ph:note-bold',
-		color: '#a855f7',
-	},
-	说明书: {
-		icon: 'ph:book-open-bold',
-		color: '#06b6d4',
-	},
+	"说明书": {
+		"icon": "ph:book-open-bold",
+		"color": "#06b6d4"
+	}
 } satisfies Record<string, { icon: string, color?: string }>
 // BLOG_ADMIN_CATEGORIES_END
 
