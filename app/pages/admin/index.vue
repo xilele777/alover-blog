@@ -55,6 +55,8 @@ interface PendingConfirmation {
 const settingsKey = 'blog-admin:github-settings'
 const postsKey = 'blog-admin:posts'
 const customCategoriesKey = 'blog-admin:custom-categories'
+const adminAccessKey = '叮当猫'
+const adminAccessStorageKey = 'blog-admin:access-granted'
 const quoteRegex = /['"]/g
 const whitespaceRegex = /[\s_]+/g
 const slugUnsafeRegex = /[^\p{L}\p{N}-]+/gu
@@ -137,6 +139,10 @@ const categoryDraft = reactive({
 	color: '#64748b',
 	icon: blogConfig.article.defaultCategoryIcon,
 })
+const accessKeyInput = ref('')
+const accessKeyError = ref('')
+const isAccessReady = ref(false)
+const isAdminUnlocked = ref(false)
 const bodyImageWidth = ref('')
 
 const posts = ref<GithubPost[]>([])
@@ -178,7 +184,7 @@ useSeoMeta({
 const layoutStore = useLayoutStore()
 layoutStore.setAside([])
 
-onMounted(() => {
+function hydrateAdminState() {
 	loadCustomCategories()
 	loadCachedPosts()
 	const raw = localStorage.getItem(settingsKey)
@@ -196,6 +202,26 @@ onMounted(() => {
 	resetForm()
 	if (hasGithubSettings())
 		loadPosts({ silent: posts.value.length > 0 })
+}
+
+function unlockAdmin() {
+	if (accessKeyInput.value !== adminAccessKey) {
+		accessKeyError.value = '访问密钥不正确。'
+		return
+	}
+
+	sessionStorage.setItem(adminAccessStorageKey, 'true')
+	isAdminUnlocked.value = true
+	accessKeyInput.value = ''
+	accessKeyError.value = ''
+	hydrateAdminState()
+}
+
+onMounted(() => {
+	isAdminUnlocked.value = sessionStorage.getItem(adminAccessStorageKey) === 'true'
+	isAccessReady.value = true
+	if (isAdminUnlocked.value)
+		hydrateAdminState()
 })
 
 watch(settings, () => {
@@ -1313,7 +1339,37 @@ async function publishPost() {
 </script>
 
 <template>
-<div class="admin-page">
+<div v-if="!isAccessReady" class="admin-access-screen">
+	<div class="admin-access-card" aria-live="polite">
+		<Icon name="line-md:loading-twotone-loop" />
+		<span>正在验证后台访问权限…</span>
+	</div>
+</div>
+<div v-else-if="!isAdminUnlocked" class="admin-access-screen">
+	<form class="admin-access-card" @submit.prevent="unlockAdmin">
+		<Icon name="ph:lock-key-bold" />
+		<h1>博客后台</h1>
+		<p>请输入访问密钥后继续。</p>
+		<label>
+			<span>访问密钥</span>
+			<input
+				v-model="accessKeyInput"
+				autofocus
+				autocomplete="current-password"
+				placeholder="请输入访问密钥"
+				type="password"
+			>
+		</label>
+		<p v-if="accessKeyError" class="admin-access-error" role="alert">
+			{{ accessKeyError }}
+		</p>
+		<button class="publish-button" type="submit">
+			<Icon name="ph:arrow-right-bold" />
+			<span>进入后台</span>
+		</button>
+	</form>
+</div>
+<div v-else class="admin-page">
 	<header class="topbar">
 		<div class="brand">
 			<UtilLink class="icon-button" to="/" title="返回博客">
@@ -1774,6 +1830,53 @@ async function publishPost() {
 </template>
 
 <style lang="scss" scoped>
+.admin-access-screen {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+	padding: 1.25rem;
+	background-color: var(--c-bg-1);
+}
+
+.admin-access-card {
+	display: grid;
+	gap: 0.9rem;
+	width: min(24rem, 100%);
+	padding: 2rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.6rem;
+	box-shadow: var(--box-shadow-2);
+	background-color: var(--ld-bg-card);
+	text-align: center;
+
+	> .iconify {
+		justify-self: center;
+		font-size: 2rem;
+		color: var(--c-primary);
+	}
+
+	h1 {
+		font-size: 1.25rem;
+	}
+
+	p {
+		color: var(--c-text-2);
+	}
+
+	label {
+		text-align: start;
+	}
+
+	input {
+		height: 2.65rem;
+	}
+}
+
+.admin-access-error {
+	font-size: 0.82rem;
+	color: var(--c-error) !important;
+}
+
 .admin-page {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
