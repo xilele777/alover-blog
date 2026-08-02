@@ -50,6 +50,7 @@ function renderContent(post: ContentCollectionItem) {
 export default defineEventHandler(async (event) => {
 	const posts = await queryCollection(event, 'content')
 		.where('stem', 'LIKE', 'posts/%')
+		.where('draft', '=', false)
 		.order('updated', 'DESC')
 		.limit(blogConfig.feed.limit)
 		.all()
