@@ -10,7 +10,15 @@ interface GithubSettings {
 
 interface GithubTreeItem {
 	path?: string
+	sha?: string
+	size?: number
 	type?: string
+}
+
+interface RepoImage {
+	path: string
+	sha?: string
+	size?: number
 }
 
 interface GithubPost {
@@ -97,6 +105,12 @@ const imageFileRegex = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i
 const timeEstablishedRegex = /timeEstablished:\s*(['"])[^'"]*\1/
 const birthYearRegex = /birthYear:\s*\d+/
 const wordCountRegex = /wordCount:\s*(['"])[^'"]*\1/
+const logConfigBlockRegex = /\/\/ BLOG_ADMIN_LOG_START[\s\S]*?\/\/ BLOG_ADMIN_LOG_END/
+const logArrayRegex = /const blogLog = \[[\s\S]*?\n\]/
+const logEntryRegex = /\{\s*label:\s*'((?:[^'\\]|\\.)*)',\s*value:\s*'((?:[^'\\]|\\.)*)'\s*\}/g
+const logEscapeRegex = /[\\']/g
+const logUnescapeRegex = /\\(['\\])/g
+const logFilePath = 'app/components/widget/BlogLog.vue'
 const githubRequestTimeout = 30000
 const maxImageSize = 8 * 1024 * 1024
 const imageExtensionMap: Record<string, string> = {
@@ -179,9 +193,21 @@ const siteForm = reactive({
 })
 const isSavingSite = ref(false)
 
-const repoImagePaths = ref<string[]>([])
+const logEntries = ref<{ label: string, value: string }[]>([])
+const logDraft = reactive({ label: '', value: '' })
+const isLoadingLog = ref(false)
+const isSavingLog = ref(false)
+
+const repoImages = ref<RepoImage[]>([])
 const isLoadingImages = ref(false)
 const imageSearch = ref('')
+const imageFolder = ref('')
+const imageOnlyUnused = ref(false)
+const imageUsage = ref<Record<string, number> | null>(null)
+const isScanningImageUsage = ref(false)
+const imageApiPreviews = ref<Record<string, string>>({})
+const selectedImagePaths = ref<string[]>([])
+const imageLibraryMode = ref<'browse' | 'cover' | 'insert'>('browse')
 const deleteImageCandidates = ref<{ checked: boolean, path: string, ref: string, usedElsewhere: boolean }[]>([])
 const isCheckingDeleteImages = ref(false)
 
@@ -189,7 +215,7 @@ const posts = ref<GithubPost[]>([])
 const selectedPostPath = ref('')
 const selectedPostSha = ref('')
 const selectedPostOriginalPath = ref('')
-const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | null>(null)
+const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'log' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | null>(null)
 const pendingConfirmation = shallowRef<PendingConfirmation | null>(null)
 const postSearch = ref('')
 const postView = ref<'all' | 'drafts' | 'published'>('all')
@@ -362,7 +388,11 @@ const dialogMeta = computed(() => ({
 	confirm: { icon: 'ph:warning-circle-bold', title: pendingConfirmation.value?.title || '确认操作' },
 	delete: { icon: 'ph:trash-bold', title: '删除文章' },
 	github: { icon: 'ph:github-logo-bold', title: 'GitHub 配置' },
-	images: { icon: 'ph:images-bold', title: '图片库' },
+	images: {
+		icon: 'ph:images-bold',
+		title: imageLibraryMode.value === 'insert' ? '图片库 · 点击图片插入正文' : imageLibraryMode.value === 'cover' ? '图片库 · 点击图片设为封面' : '图片库',
+	},
+	log: { icon: 'ph:clock-counter-clockwise-bold', title: '更新日志' },
 	meta: { icon: 'ph:sliders-horizontal-bold', title: '文章设置' },
 	posts: { icon: 'ph:files-bold', title: postView.value === 'drafts' ? '草稿箱' : '文章列表' },
 	site: { icon: 'ph:gear-bold', title: '站点设置' },
@@ -421,6 +451,7 @@ function openDialog(dialog: NonNullable<typeof activeDialog.value>) {
 function closeDialog() {
 	activeDialog.value = null
 	pendingConfirmation.value = null
+	imageLibraryMode.value = 'browse'
 }
 
 function requestConfirmation(confirmation: PendingConfirmation) {
@@ -1355,8 +1386,59 @@ function imageRefPath(path: string) {
 	return `/${path.replace(publicPrefixRegex, '')}`
 }
 
-function getRepoImageSrc(path: string) {
-	return `https://raw.githubusercontent.com/${settings.owner.trim()}/${settings.repo.trim()}/${settings.branch.trim()}/${encodePath(path)}`
+function getImageMime(path: string) {
+	const extension = path.split('.').at(-1)?.toLowerCase() || 'png'
+	return imageMimeMap[extension] || 'image/png'
+}
+
+/**
+ * 缩略图优先使用站点自身的 /images/... 路径（public 目录里的文件在开发和线上都由站点直接提供，
+ * 不依赖 raw.githubusercontent.com）。尚未提交的暂存图用 base64 data URL。
+ */
+function getImagePreviewSrc(path: string) {
+	const staged = stagedChanges.value.find(item => item.path === path && !item.delete && item.encoding === 'base64' && item.content)
+	if (staged)
+		return `data:${getImageMime(path)};base64,${staged.content}`
+	return imageApiPreviews.value[path] || imageRefPath(path)
+}
+
+/** 本地没有这张图（例如上传后还没部署）时，改用带 token 的 Blob API 拉取缩略图。 */
+async function loadImageApiPreview(path: string) {
+	if (imageApiPreviews.value[path] !== undefined)
+		return
+	const image = repoImages.value.find(item => item.path === path)
+	if (!image?.sha || !canUseGithub.value)
+		return
+	imageApiPreviews.value[path] = ''
+	try {
+		const blob = await githubRequest<{ content?: string }>(`${repoPath.value}/git/blobs/${image.sha}`)
+		if (!blob.content)
+			return
+		const binary = atob(blob.content.replace(newlineRegex, ''))
+		const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
+		imageApiPreviews.value[path] = URL.createObjectURL(new Blob([bytes], { type: getImageMime(path) }))
+	}
+	catch {
+		// 拉取失败时保留站点路径作为兜底。
+	}
+}
+
+function clearImageApiPreviews() {
+	for (const previewUrl of Object.values(imageApiPreviews.value)) {
+		if (previewUrl)
+			URL.revokeObjectURL(previewUrl)
+	}
+	imageApiPreviews.value = {}
+}
+
+function formatBytes(size?: number) {
+	if (!size)
+		return ''
+	if (size < 1024)
+		return `${size} B`
+	if (size < 1024 * 1024)
+		return `${(size / 1024).toFixed(1)} KB`
+	return `${(size / 1024 / 1024).toFixed(2)} MB`
 }
 
 async function loadRepoImages() {
@@ -1369,10 +1451,10 @@ async function loadRepoImages() {
 		const result = await githubRequest<{ tree: GithubTreeItem[] }>(
 			`${repoPath.value}/git/trees/${encodeURIComponent(settings.branch.trim())}?recursive=1`,
 		)
-		repoImagePaths.value = result.tree
+		repoImages.value = result.tree
 			.filter(item => item.type === 'blob' && item.path?.startsWith('public/images/') && imageFileRegex.test(item.path))
-			.map(item => item.path!)
-			.sort((a, b) => b.localeCompare(a))
+			.map(item => ({ path: item.path!, sha: item.sha, size: item.size }))
+			.sort((a, b) => b.path.localeCompare(a.path))
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -1382,33 +1464,110 @@ async function loadRepoImages() {
 	}
 }
 
+const imageFolders = computed(() => {
+	const folders = new Set<string>()
+	for (const image of repoImages.value)
+		folders.add(image.path.split('/').slice(0, -1).join('/'))
+	return [...folders].toSorted((a, b) => b.localeCompare(a))
+})
+
+function imageFolderLabel(folder: string) {
+	return folder === 'public/images' ? '未分组' : folder.slice('public/images/'.length)
+}
+
+function getImageUsage(path: string) {
+	return imageUsage.value?.[path]
+}
+
 const galleryImages = computed(() => {
 	const deletedPaths = new Set(stagedChanges.value.filter(item => item.delete).map(item => item.path))
 	const stagedImages = stagedChanges.value
 		.filter(item => !item.delete && item.encoding === 'base64' && item.path.startsWith('public/images/') && item.content)
-		.map((item) => {
-			const extension = item.path.split('.').at(-1)?.toLowerCase() || 'png'
-			return {
-				path: item.path,
-				src: `data:${imageMimeMap[extension] || 'image/png'};base64,${item.content}`,
-				staged: true,
-			}
-		})
+		.map(item => ({ path: item.path, size: undefined as number | undefined, staged: true }))
 	const stagedPaths = new Set(stagedImages.map(item => item.path))
-	const repoImages = repoImagePaths.value
-		.filter(path => !deletedPaths.has(path) && !stagedPaths.has(path))
-		.map(path => ({ path, src: getRepoImageSrc(path), staged: false }))
+	const committedImages = repoImages.value
+		.filter(image => !deletedPaths.has(image.path) && !stagedPaths.has(image.path))
+		.map(image => ({ path: image.path, size: image.size, staged: false }))
 	const keyword = imageSearch.value.trim().toLowerCase()
-	const all = [...stagedImages, ...repoImages]
-	if (!keyword)
-		return all
-	return all.filter(item => item.path.toLowerCase().includes(keyword))
+	return [...stagedImages, ...committedImages].filter((item) => {
+		if (imageFolder.value && !item.path.startsWith(`${imageFolder.value}/`))
+			return false
+		if (imageOnlyUnused.value && getImageUsage(item.path) !== 0)
+			return false
+		if (keyword && !item.path.toLowerCase().includes(keyword))
+			return false
+		return true
+	})
 })
 
-function openImageLibrary() {
+/** 扫描所有文章（含暂存中的修改），统计每张图片被引用的次数。 */
+async function scanImageUsage() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再检测图片引用。'
+		return
+	}
+	isScanningImageUsage.value = true
+	try {
+		const contents = await Promise.all(posts.value.map(post => fetchPostMarkdown(post.path).catch(() => '')))
+		const usage: Record<string, number> = {}
+		const allPaths = [
+			...repoImages.value.map(image => image.path),
+			...stagedChanges.value.filter(item => !item.delete && item.encoding === 'base64').map(item => item.path),
+		]
+		for (const path of allPaths) {
+			const refPath = imageRefPath(path)
+			usage[path] = contents.filter(content => content.includes(refPath)).length
+		}
+		imageUsage.value = usage
+		const unusedCount = Object.values(usage).filter(count => count === 0).length
+		statusMessage.value = unusedCount
+			? `引用检测完成：${unusedCount} 张图片未被任何文章引用。`
+			: '引用检测完成：所有图片都在使用中。'
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isScanningImageUsage.value = false
+	}
+}
+
+function openImageLibrary(mode: 'browse' | 'cover' | 'insert' = 'browse') {
+	imageLibraryMode.value = mode
 	openDialog('images')
-	if (!repoImagePaths.value.length)
+	if (!repoImages.value.length)
 		void loadRepoImages()
+}
+
+async function handleGalleryImageClick(path: string) {
+	if (imageLibraryMode.value === 'insert')
+		await insertImageFromLibrary(path)
+	else if (imageLibraryMode.value === 'cover')
+		setCoverFromLibrary(path)
+}
+
+function toggleImageSelection(path: string) {
+	selectedImagePaths.value = selectedImagePaths.value.includes(path)
+		? selectedImagePaths.value.filter(item => item !== path)
+		: [...selectedImagePaths.value, path]
+}
+
+function selectFilteredImages() {
+	selectedImagePaths.value = galleryImages.value.map(item => item.path)
+}
+
+function clearImageSelection() {
+	selectedImagePaths.value = []
+}
+
+/** 暂存的新图直接撤销暂存；已提交的图暂存一条删除记录。 */
+function removeGalleryImage(path: string) {
+	const stagedAddition = stagedChanges.value.find(item => item.path === path && !item.delete && item.encoding === 'base64')
+	if (stagedAddition) {
+		stagedChanges.value = stagedChanges.value.filter(item => item.path !== path)
+		return
+	}
+	stageChange({ delete: true, path })
 }
 
 async function insertImageFromLibrary(path: string) {
@@ -1422,7 +1581,13 @@ async function insertImageFromLibrary(path: string) {
 function setCoverFromLibrary(path: string) {
 	clearCoverPreviewUrl()
 	form.image = imageRefPath(path)
-	closeDialog()
+	if (imageLibraryMode.value === 'cover') {
+		imageLibraryMode.value = 'browse'
+		openDialog('meta')
+	}
+	else {
+		closeDialog()
+	}
 	statusMessage.value = `封面图已设置：${form.image}`
 }
 
@@ -1438,15 +1603,44 @@ async function copyImagePath(path: string) {
 }
 
 function removeLibraryImage(path: string) {
+	const usage = getImageUsage(path)
 	requestConfirmation({
 		action: () => {
-			stageChange({ delete: true, path })
+			removeGalleryImage(path)
+			selectedImagePaths.value = selectedImagePaths.value.filter(item => item !== path)
 			statusMessage.value = `图片“${path}”的删除已暂存，点击“提交全部”后统一发布。`
 		},
 		confirmLabel: '暂存删除',
-		detail: '请先确认没有文章正在引用这张图片。',
+		detail: usage === undefined
+			? '尚未检测引用，请先确认没有文章正在使用这张图片。'
+			: usage > 0
+				? `注意：仍有 ${usage} 篇文章引用这张图片，删除后文章中会出现坏图。`
+				: '这张图片未被任何文章引用，可以放心删除。',
 		message: `确定删除图片 ${path} 吗？`,
 		title: '删除图片',
+	})
+}
+
+function removeSelectedImages() {
+	const paths = [...selectedImagePaths.value]
+	if (!paths.length)
+		return
+	const usedCount = paths.filter(path => (getImageUsage(path) || 0) > 0).length
+	requestConfirmation({
+		action: () => {
+			for (const path of paths)
+				removeGalleryImage(path)
+			clearImageSelection()
+			statusMessage.value = `${paths.length} 张图片的删除已暂存，点击“提交全部”后统一发布。`
+		},
+		confirmLabel: '批量暂存删除',
+		detail: usedCount
+			? `注意：其中 ${usedCount} 张仍被文章引用，删除后会出现坏图。`
+			: imageUsage.value
+				? '所选图片均未被文章引用。'
+				: '尚未检测引用，建议先点击“检测引用”确认。',
+		message: `确定删除选中的 ${paths.length} 张图片吗？`,
+		title: '批量删除图片',
 	})
 }
 
@@ -1549,6 +1743,113 @@ async function saveSiteSettings() {
 	}
 }
 
+function escapeLogText(value: string) {
+	return value.replace(logEscapeRegex, match => `\\${match}`)
+}
+
+function parseLogEntries(source: string) {
+	const block = source.match(logConfigBlockRegex)?.[0] ?? source.match(logArrayRegex)?.[0]
+	if (!block)
+		throw new Error('BlogLog.vue 中找不到 blogLog 配置，无法读取更新日志。')
+	return Array.from(block.matchAll(logEntryRegex), match => ({
+		label: (match[1] ?? '').replace(logUnescapeRegex, '$1'),
+		value: (match[2] ?? '').replace(logUnescapeRegex, '$1'),
+	}))
+}
+
+function serializeLogConfigBlock() {
+	const rows = logEntries.value
+		.map(item => `\t{ label: '${escapeLogText(item.label.trim())}', value: '${escapeLogText(item.value.trim())}' },`)
+		.join('\n')
+	return [
+		'// BLOG_ADMIN_LOG_START',
+		'const blogLog = [',
+		rows,
+		']',
+		'// BLOG_ADMIN_LOG_END',
+	].join('\n')
+}
+
+function migrateLogConfigSource(source: string) {
+	if (logConfigBlockRegex.test(source))
+		return source.replace(logConfigBlockRegex, serializeLogConfigBlock())
+	if (logArrayRegex.test(source))
+		return source.replace(logArrayRegex, serializeLogConfigBlock())
+	throw new Error('BlogLog.vue 中找不到 blogLog 配置，无法自动更新。')
+}
+
+async function fetchLogSource() {
+	const current = await githubRequest<GithubContent>(
+		`${repoPath.value}/contents/${encodePath(logFilePath)}?ref=${encodeURIComponent(settings.branch.trim())}`,
+	)
+	return decodeBase64(current.content)
+}
+
+async function openLogDialog() {
+	openDialog('log')
+	logDraft.label = localDateTime().slice(0, 10)
+	logDraft.value = ''
+	clearMessages()
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再编辑更新日志。'
+		return
+	}
+	isLoadingLog.value = true
+	try {
+		const source = getStagedContent(logFilePath) || await fetchLogSource()
+		logEntries.value = parseLogEntries(source)
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isLoadingLog.value = false
+	}
+}
+
+function addLogEntry() {
+	const label = logDraft.label.trim()
+	const value = logDraft.value.trim()
+	if (!label || !value)
+		return
+	logEntries.value = [...logEntries.value, { label, value }].toSorted((a, b) => a.label.localeCompare(b.label))
+	logDraft.label = localDateTime().slice(0, 10)
+	logDraft.value = ''
+}
+
+function removeLogEntry(index: number) {
+	logEntries.value = logEntries.value.filter((_, itemIndex) => itemIndex !== index)
+}
+
+async function saveLogConfig() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再保存更新日志。'
+		return
+	}
+	if (!logEntries.value.length) {
+		errorMessage.value = '至少保留一条更新日志。'
+		return
+	}
+	if (logEntries.value.some(item => !item.label.trim() || !item.value.trim())) {
+		errorMessage.value = '更新日志的日期和内容不能为空。'
+		return
+	}
+	isSavingLog.value = true
+	clearMessages()
+	try {
+		const source = getStagedContent(logFilePath) || await fetchLogSource()
+		stageChange({ content: migrateLogConfigSource(source), path: logFilePath })
+		closeDialog()
+		statusMessage.value = '更新日志已暂存，点击“提交全部”后统一发布，部署完成后归档页生效。'
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isSavingLog.value = false
+	}
+}
+
 async function deleteSelectedPost() {
 	if (!isEditingExisting.value || !selectedPostOriginalPath.value || !selectedPostSha.value)
 		return
@@ -1639,6 +1940,7 @@ async function uploadArticleImage(event: Event) {
 onBeforeUnmount(() => {
 	clearCoverPreviewUrl()
 	clearBodyImagePreviewUrls()
+	clearImageApiPreviews()
 	window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
@@ -1701,7 +2003,7 @@ onBeforeUnmount(() => {
 				<Icon name="ph:tag-bold" />
 				<span>标签</span>
 			</button>
-			<button class="secondary-button" type="button" @click="openImageLibrary">
+			<button class="secondary-button" type="button" @click="openImageLibrary()">
 				<Icon name="ph:images-bold" />
 				<span>图片库</span>
 			</button>
@@ -1712,6 +2014,10 @@ onBeforeUnmount(() => {
 			<button class="secondary-button" type="button" @click="openDialog('site')">
 				<Icon name="ph:gear-bold" />
 				<span>站点</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openLogDialog">
+				<Icon name="ph:clock-counter-clockwise-bold" />
+				<span>日志</span>
 			</button>
 			<button class="secondary-button" type="button" @click="resetForm">
 				<Icon name="ph:file-plus-bold" />
@@ -1764,6 +2070,10 @@ onBeforeUnmount(() => {
 						<button :disabled="!canUseGithub || isUploadingBodyImage" type="button" @click.prevent="triggerBodyImageUpload">
 							<Icon :name="isUploadingBodyImage ? 'line-md:loading-twotone-loop' : 'ph:image-square-bold'" />
 							<span>{{ isUploadingBodyImage ? '上传中' : '插入图片' }}</span>
+						</button>
+						<button :disabled="!canUseGithub" title="从已上传的图片中选择并插入" type="button" @click.prevent="openImageLibrary('insert')">
+							<Icon name="ph:images-bold" />
+							<span>从图片库插入</span>
 						</button>
 					</div>
 				</div>
@@ -2038,7 +2348,7 @@ onBeforeUnmount(() => {
 						<p>文章引用了以下图片，勾选后将一并暂存删除：</p>
 						<label v-for="item in deleteImageCandidates" :key="item.path" class="delete-image-row">
 							<input v-model="item.checked" type="checkbox">
-							<img :src="getRepoImageSrc(item.path)" alt="">
+							<img :src="getImagePreviewSrc(item.path)" alt="" @error="loadImageApiPreview(item.path)">
 							<span class="delete-image-info">
 								<code>{{ item.ref }}</code>
 								<small v-if="item.usedElsewhere" class="warning-text">其他文章仍在引用，默认保留</small>
@@ -2085,41 +2395,142 @@ onBeforeUnmount(() => {
 				</div>
 
 				<div v-else-if="activeDialog === 'images'" class="dialog-content images-dialog-content">
+					<p v-if="imageLibraryMode !== 'browse'" class="image-mode-hint">
+						<Icon name="ph:cursor-click-bold" />
+						<span>{{ imageLibraryMode === 'insert' ? '点击任意图片，即可插入到正文光标处。' : '点击任意图片，即可设为文章封面。' }}</span>
+					</p>
 					<div class="dialog-toolbar">
 						<label class="search-field">
 							<Icon name="ph:magnifying-glass-bold" />
 							<input v-model.trim="imageSearch" placeholder="搜索图片路径">
 						</label>
+						<select v-model="imageFolder" class="folder-select" aria-label="按目录筛选">
+							<option value="">
+								全部目录
+							</option>
+							<option v-for="folder in imageFolders" :key="folder" :value="folder">
+								{{ imageFolderLabel(folder) }}
+							</option>
+						</select>
 						<button class="secondary-button" :disabled="!canUseGithub || isLoadingImages" type="button" @click="loadRepoImages">
 							<Icon :name="isLoadingImages ? 'line-md:loading-twotone-loop' : 'ph:arrow-clockwise-bold'" />
 							<span>刷新</span>
 						</button>
 					</div>
+					<div class="image-manage-bar">
+						<button class="secondary-button" :disabled="!canUseGithub || isScanningImageUsage" type="button" @click="scanImageUsage">
+							<Icon :name="isScanningImageUsage ? 'line-md:loading-twotone-loop' : 'ph:magnifying-glass-plus-bold'" />
+							<span>{{ isScanningImageUsage ? '检测中' : '检测引用' }}</span>
+						</button>
+						<label v-if="imageUsage" class="unused-toggle">
+							<input v-model="imageOnlyUnused" type="checkbox">
+							<span>仅看未使用</span>
+						</label>
+						<span class="manage-bar-spacer" />
+						<button v-if="galleryImages.length" class="secondary-button" type="button" @click="selectFilteredImages">
+							<Icon name="ph:selection-all-bold" />
+							<span>全选</span>
+						</button>
+						<button v-if="selectedImagePaths.length" class="secondary-button" type="button" @click="clearImageSelection">
+							<span>取消选择</span>
+						</button>
+						<button v-if="selectedImagePaths.length" class="secondary-button danger-button" type="button" @click="removeSelectedImages">
+							<Icon name="ph:trash-bold" />
+							<span>删除选中（{{ selectedImagePaths.length }}）</span>
+						</button>
+					</div>
 					<div class="image-grid">
-						<figure v-for="item in galleryImages" :key="item.path" class="image-card">
-							<img :src="item.src" alt="" loading="lazy">
+						<figure
+							v-for="item in galleryImages"
+							:key="item.path"
+							class="image-card"
+							:class="{ clickable: imageLibraryMode !== 'browse', selected: selectedImagePaths.includes(item.path) }"
+						>
+							<label class="image-select">
+								<input
+									:checked="selectedImagePaths.includes(item.path)"
+									type="checkbox"
+									@change="toggleImageSelection(item.path)"
+								>
+							</label>
+							<img
+								:src="getImagePreviewSrc(item.path)"
+								alt=""
+								loading="lazy"
+								@click="handleGalleryImageClick(item.path)"
+								@error="loadImageApiPreview(item.path)"
+							>
 							<span v-if="item.staged" class="image-badge">未提交</span>
+							<span v-else-if="getImageUsage(item.path) === 0" class="image-badge unused">未使用</span>
+							<span v-else-if="getImageUsage(item.path)" class="image-badge used">引用 {{ getImageUsage(item.path) }}</span>
 							<figcaption :title="item.path">
-								{{ item.path.split('/').at(-1) }}
+								<span>{{ item.path.split('/').at(-1) }}</span>
+								<small v-if="formatBytes(item.size)">{{ formatBytes(item.size) }}</small>
 							</figcaption>
 							<div class="image-actions">
-								<button title="插入正文" type="button" @click="insertImageFromLibrary(item.path)">
+								<button title="插入到正文光标处" type="button" @click="insertImageFromLibrary(item.path)">
 									<Icon name="ph:text-indent-bold" />
+									<span>插入</span>
 								</button>
-								<button title="设为封面" type="button" @click="setCoverFromLibrary(item.path)">
+								<button title="设为文章封面图" type="button" @click="setCoverFromLibrary(item.path)">
 									<Icon name="ph:image-square-bold" />
+									<span>封面</span>
 								</button>
-								<button title="复制路径" type="button" @click="copyImagePath(item.path)">
+								<button title="复制图片路径" type="button" @click="copyImagePath(item.path)">
 									<Icon name="ph:copy-bold" />
+									<span>复制</span>
 								</button>
-								<button class="danger" title="删除图片" type="button" @click="removeLibraryImage(item.path)">
+								<button class="danger" title="暂存删除这张图片" type="button" @click="removeLibraryImage(item.path)">
 									<Icon name="ph:trash-bold" />
+									<span>删除</span>
 								</button>
 							</div>
 						</figure>
 						<p v-if="!galleryImages.length" class="empty-text">
-							{{ isLoadingImages ? '正在读取图片…' : repoImagePaths.length ? '没有匹配的图片' : '仓库中还没有已上传的图片' }}
+							{{ isLoadingImages ? '正在读取图片…' : repoImages.length ? '没有匹配的图片' : '仓库中还没有已上传的图片' }}
 						</p>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'log'" class="dialog-content manager-content">
+					<div class="manager-list log-manager-list">
+						<div v-for="(entry, index) in logEntries" :key="index" class="manager-row log-row">
+							<label>
+								<span>日期</span>
+								<input v-model.trim="entry.label" placeholder="2026-08-02">
+							</label>
+							<label>
+								<span>内容</span>
+								<input v-model.trim="entry.value" placeholder="例如：新增图片库">
+							</label>
+							<button class="icon-button danger-button" :disabled="isSavingLog" title="删除这条日志" type="button" @click="removeLogEntry(index)">
+								<Icon name="ph:trash-bold" />
+							</button>
+						</div>
+						<p v-if="!logEntries.length" class="empty-text">
+							{{ isLoadingLog ? '正在读取更新日志…' : '还没有更新日志，先在下方新增一条' }}
+						</p>
+					</div>
+					<div class="log-create-row">
+						<label>
+							<span>日期</span>
+							<input v-model.trim="logDraft.label" placeholder="2026-08-02">
+						</label>
+						<label>
+							<span>内容</span>
+							<input v-model.trim="logDraft.value" placeholder="例如：新增图片库" @keyup.enter="addLogEntry">
+						</label>
+						<button class="secondary-button" :disabled="!logDraft.label.trim() || !logDraft.value.trim() || isSavingLog" type="button" @click="addLogEntry">
+							<Icon name="ph:plus-bold" />
+							<span>新增一条</span>
+						</button>
+					</div>
+					<div class="manager-footer">
+						<small class="manager-hint">编辑的是归档页“更新日志”卡片，新增时按日期自动排序。</small>
+						<button class="secondary-button" :disabled="!canUseGithub || isLoadingLog || isSavingLog" type="button" @click="saveLogConfig">
+							<Icon :name="isSavingLog ? 'line-md:loading-twotone-loop' : 'ph:floppy-disk-bold'" />
+							<span>{{ isSavingLog ? '暂存中' : '暂存更新日志' }}</span>
+						</button>
 					</div>
 				</div>
 
@@ -2231,7 +2642,11 @@ onBeforeUnmount(() => {
 							<Icon :name="isUploadingImage ? 'line-md:loading-twotone-loop' : 'ph:upload-simple-bold'" />
 							<span>{{ isUploadingImage ? '上传中' : '上传图片' }}</span>
 						</button>
-						<small>会上传到 public/images，并自动填写封面图地址。</small>
+						<button class="secondary-button" :disabled="!canUseGithub" type="button" @click="openImageLibrary('cover')">
+							<Icon name="ph:images-bold" />
+							<span>从图片库选择</span>
+						</button>
+						<small>可上传新图，或从已上传的图片中选择作为封面。</small>
 					</div>
 					<div v-if="coverPreviewSrc" class="cover-preview wide">
 						<img :src="coverPreviewSrc" alt="封面图预览">
@@ -2928,6 +3343,25 @@ textarea {
 	border-block-start: 1px solid var(--c-border);
 }
 
+.log-row {
+	grid-template-columns: minmax(8rem, 0.4fr) minmax(12rem, 1fr) auto;
+}
+
+.log-create-row {
+	display: grid;
+	grid-template-columns: minmax(8rem, 0.4fr) minmax(12rem, 1fr) auto;
+	align-items: end;
+	gap: 0.65rem;
+	padding-block-start: 0.75rem;
+	border-block-start: 1px solid var(--c-border);
+}
+
+.manager-hint {
+	align-self: center;
+	margin-inline-end: auto;
+	color: var(--c-text-3);
+}
+
 .category-identity {
 	display: flex;
 	align-items: center;
@@ -3170,8 +3604,69 @@ textarea {
 }
 
 .images-dialog-content {
-	grid-template-rows: auto minmax(0, 1fr);
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
+
+	.image-grid {
+		flex: 1;
+		min-height: 0;
+	}
+}
+
+.image-mode-hint {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.5rem 0.7rem;
+	border: 1px solid var(--c-primary);
+	border-radius: 0.45rem;
+	background-color: var(--c-primary-soft);
+	font-size: 0.82rem;
+	font-weight: 700;
+	color: var(--c-primary);
+}
+
+.folder-select {
+	width: auto;
+	min-width: 7rem;
+	height: 2.45rem;
+}
+
+.image-manage-bar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+
+	.secondary-button {
+		height: 2.1rem;
+		padding-inline: 0.6rem;
+		font-size: 0.78rem;
+	}
+}
+
+.manage-bar-spacer {
+	flex: 1;
+}
+
+.unused-toggle {
+	display: inline-flex;
+	align-items: center;
+	flex-direction: row;
+	gap: 0.35rem;
+	font-size: 0.78rem;
+	color: var(--c-text-2);
+	cursor: pointer;
+
+	input {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	span {
+		font-size: inherit;
+	}
 }
 
 .image-grid {
@@ -3199,6 +3694,20 @@ textarea {
 	border-radius: 0.45rem;
 	background-color: var(--c-bg-1);
 
+	&.selected {
+		border-color: var(--c-primary);
+		box-shadow: 0 0 0 2px var(--c-primary-soft);
+	}
+
+	&.clickable img {
+		cursor: pointer;
+
+		&:hover {
+			outline: 2px solid var(--c-primary);
+			outline-offset: -2px;
+		}
+	}
+
 	img {
 		width: 100%;
 		height: 6rem;
@@ -3208,11 +3717,43 @@ textarea {
 	}
 
 	figcaption {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.4rem;
 		overflow: hidden;
 		font-size: 0.72rem;
 		white-space: nowrap;
-		text-overflow: ellipsis;
 		color: var(--c-text-2);
+
+		span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		small {
+			flex: none;
+			color: var(--c-text-3);
+		}
+	}
+}
+
+.image-select {
+	display: grid;
+	place-items: center;
+	position: absolute;
+	inset-block-start: 0.65rem;
+	inset-inline-end: 0.65rem;
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 0.3rem;
+	background-color: #FFFC;
+	cursor: pointer;
+	z-index: 2;
+
+	input {
+		width: 1rem;
+		height: 1rem;
 	}
 }
 
@@ -3222,26 +3763,36 @@ textarea {
 	inset-inline-start: 0.65rem;
 	padding: 0.08rem 0.4rem;
 	border-radius: 0.3rem;
-	background-color: var(--c-warning);
+	background-color: var(--c-primary);
 	font-size: 0.68rem;
 	font-weight: 700;
 	color: var(--c-bg);
+
+	&.unused {
+		background-color: var(--c-warning);
+	}
+
+	&.used {
+		background-color: #0008;
+		color: #FFF;
+	}
 }
 
 .image-actions {
-	display: flex;
-	justify-content: space-between;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
 	gap: 0.25rem;
 
 	button {
 		display: inline-flex;
-		flex: 1;
 		align-items: center;
 		justify-content: center;
+		gap: 0.25rem;
 		min-height: 1.8rem;
 		border: 1px solid var(--c-border);
 		border-radius: 0.35rem;
 		background-color: var(--ld-bg-card);
+		font-size: 0.72rem;
 		color: var(--c-text-2);
 
 		&:hover {
@@ -3387,6 +3938,8 @@ textarea {
 
 	.category-row,
 	.category-create-row,
+	.log-row,
+	.log-create-row,
 	.tag-merge-panel {
 		grid-template-columns: 1fr;
 	}
