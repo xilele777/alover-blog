@@ -15,6 +15,12 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 
 	<div class="gradient-card">
 		<UtilLink class="article-link scrollbar-hidden scrollcheck-x" :to :title="description">
+			<span
+				v-if="image"
+				class="article-cover"
+				:style="{ backgroundImage: `url(${image})` }"
+				aria-hidden="true"
+			/>
 			<span class="article-title">
 				{{ title }}
 			</span>
@@ -76,11 +82,32 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 .gradient-card {
 	flex-grow: 1;
 	min-width: 0;
+	position: relative;
+	overflow: hidden;
+	border-radius: 0.5em;
+
+	.article-cover {
+		position: absolute;
+		inset: 0 0 0 auto;
+		width: min(40%, 12rem);
+		background-position: center;
+		background-size: cover;
+		mask-image: linear-gradient(to left, #FFF, transparent);
+		opacity: 0.25;
+		pointer-events: none;
+		transition: opacity 0.2s;
+	}
+}
+
+.article-item:hover .gradient-card .article-cover,
+.article-item:focus-within .gradient-card .article-cover {
+	opacity: 0.5;
 }
 
 .article-link {
 	--scrollbar-height: 0px;
 
+	position: relative;
 	display: flex;
 	align-items: baseline;
 	gap: 1em;
