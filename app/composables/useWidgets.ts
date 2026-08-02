@@ -3,6 +3,7 @@ import {
 	LazyBlogWidget,
 	LazyWidgetBlogLog,
 	LazyWidgetBlogStats,
+	LazyWidgetBlogTech,
 	LazyWidgetEmpty,
 	LazyWidgetToc,
 	LazyWidgetTodayStatus,
@@ -13,6 +14,7 @@ import { pascal } from 'radash'
 const rawWidgets = {
 	LazyWidgetBlogLog,
 	LazyWidgetBlogStats,
+	LazyWidgetBlogTech,
 	LazyWidgetEmpty,
 	LazyWidgetToc,
 	LazyWidgetTodayStatus,

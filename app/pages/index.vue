@@ -7,7 +7,7 @@ useSeoMeta({
 })
 
 const layoutStore = useLayoutStore()
-layoutStore.setAside(['blog-stats'])
+layoutStore.setAside(['blog-stats', 'blog-tech'])
 
 const { data: listRaw } = await useAsyncData('index_posts', () => useArticleIndexOptions(), { default: () => [] })
 const listPublished = usePublishedArticles(listRaw)
