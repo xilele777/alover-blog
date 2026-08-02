@@ -62,6 +62,7 @@ interface StagedChange {
 const settingsKey = 'blog-admin:github-settings'
 const postsKey = 'blog-admin:posts'
 const customCategoriesKey = 'blog-admin:custom-categories'
+const stagedChangesKey = 'blog-admin:staged-changes'
 const adminAccessKey = '叮当猫'
 const adminAccessStorageKey = 'blog-admin:access-granted'
 const quoteRegex = /['"]/g
@@ -91,6 +92,11 @@ const blogConfigDeclarationRegex = /^const\s+blogConfig\s*=/m
 const categoriesPropertyRegex = /(\bcategories\s*:\s*\{\s*)/
 const frontmatterTagsLineRegex = /^tags:[^\r\n]*$/m
 const frontmatterUpdatedLineRegex = /^updated:[^\r\n]*$/m
+const markdownImageRefRegex = /!\[[^\]]*\]\((\/images\/[^)\s]+)\)/g
+const imageFileRegex = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i
+const timeEstablishedRegex = /timeEstablished:\s*(['"])[^'"]*\1/
+const birthYearRegex = /birthYear:\s*\d+/
+const wordCountRegex = /wordCount:\s*(['"])[^'"]*\1/
 const githubRequestTimeout = 30000
 const maxImageSize = 8 * 1024 * 1024
 const imageExtensionMap: Record<string, string> = {
@@ -99,6 +105,15 @@ const imageExtensionMap: Record<string, string> = {
 	'image/jpeg': 'jpg',
 	'image/png': 'png',
 	'image/webp': 'webp',
+}
+const imageMimeMap: Record<string, string> = {
+	avif: 'image/avif',
+	gif: 'image/gif',
+	jpeg: 'image/jpeg',
+	jpg: 'image/jpeg',
+	png: 'image/png',
+	svg: 'image/svg+xml',
+	webp: 'image/webp',
 }
 const bodyImageSizeOptions = [
 	{ label: '自适应', value: '' },
@@ -152,14 +167,29 @@ const accessKeyError = ref('')
 const isAccessReady = ref(false)
 const isAdminUnlocked = ref(false)
 const stagedChanges = ref<StagedChange[]>([])
+const stagedPersistFailed = ref(false)
 const isCommittingChanges = ref(false)
 const bodyImageWidth = ref('')
+
+const appConfig = useAppConfig()
+const siteForm = reactive({
+	timeEstablished: blogConfig.timeEstablished,
+	birthYear: appConfig.component.stats.birthYear,
+	wordCount: appConfig.component.stats.wordCount,
+})
+const isSavingSite = ref(false)
+
+const repoImagePaths = ref<string[]>([])
+const isLoadingImages = ref(false)
+const imageSearch = ref('')
+const deleteImageCandidates = ref<{ checked: boolean, path: string, ref: string, usedElsewhere: boolean }[]>([])
+const isCheckingDeleteImages = ref(false)
 
 const posts = ref<GithubPost[]>([])
 const selectedPostPath = ref('')
 const selectedPostSha = ref('')
 const selectedPostOriginalPath = ref('')
-const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'meta' | 'posts' | 'tags' | null>(null)
+const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | null>(null)
 const pendingConfirmation = shallowRef<PendingConfirmation | null>(null)
 const postSearch = ref('')
 const postView = ref<'all' | 'drafts' | 'published'>('all')
@@ -195,6 +225,7 @@ layoutStore.setAside([])
 function hydrateAdminState() {
 	loadCustomCategories()
 	loadCachedPosts()
+	loadStagedChanges()
 	const raw = localStorage.getItem(settingsKey)
 	if (!raw) {
 		resetForm()
@@ -230,6 +261,7 @@ onMounted(() => {
 	isAccessReady.value = true
 	if (isAdminUnlocked.value)
 		hydrateAdminState()
+	window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
 watch(settings, () => {
@@ -330,8 +362,11 @@ const dialogMeta = computed(() => ({
 	confirm: { icon: 'ph:warning-circle-bold', title: pendingConfirmation.value?.title || '确认操作' },
 	delete: { icon: 'ph:trash-bold', title: '删除文章' },
 	github: { icon: 'ph:github-logo-bold', title: 'GitHub 配置' },
+	images: { icon: 'ph:images-bold', title: '图片库' },
 	meta: { icon: 'ph:sliders-horizontal-bold', title: '文章设置' },
 	posts: { icon: 'ph:files-bold', title: postView.value === 'drafts' ? '草稿箱' : '文章列表' },
+	site: { icon: 'ph:gear-bold', title: '站点设置' },
+	staged: { icon: 'ph:tray-bold', title: '暂存区' },
 	tags: { icon: 'ph:tag-bold', title: '标签管理' },
 })[activeDialog.value || 'meta'])
 
@@ -806,6 +841,58 @@ function stageChange(change: StagedChange) {
 		stagedChanges.value.push(nextChange)
 }
 
+function loadStagedChanges() {
+	const raw = localStorage.getItem(stagedChangesKey)
+	if (!raw)
+		return
+	try {
+		const values = JSON.parse(raw)
+		if (Array.isArray(values))
+			stagedChanges.value = values.filter(item => item && typeof item.path === 'string')
+	}
+	catch {
+		localStorage.removeItem(stagedChangesKey)
+	}
+}
+
+watch(stagedChanges, () => {
+	try {
+		if (stagedChanges.value.length)
+			localStorage.setItem(stagedChangesKey, JSON.stringify(stagedChanges.value))
+		else
+			localStorage.removeItem(stagedChangesKey)
+		stagedPersistFailed.value = false
+	}
+	catch {
+		// localStorage 配额不足（通常是大图 base64），暂存只保留在内存中。
+		stagedPersistFailed.value = true
+	}
+}, { deep: true })
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+	if (stagedPersistFailed.value && stagedChanges.value.length) {
+		event.preventDefault()
+		event.returnValue = ''
+	}
+}
+
+function describeStagedChange(change: StagedChange) {
+	if (change.delete)
+		return { label: '删除', tone: 'danger' }
+	if (change.encoding === 'base64')
+		return { label: '新图片', tone: 'normal' }
+	if (change.path.endsWith('.md'))
+		return { label: '文章', tone: 'normal' }
+	return { label: '配置', tone: 'normal' }
+}
+
+function unstageChange(path: string) {
+	stagedChanges.value = stagedChanges.value.filter(item => item.path !== path)
+	statusMessage.value = `已撤销暂存：${path}`
+	if (path.endsWith('.md') && canUseGithub.value)
+		void loadPosts({ silent: true })
+}
+
 function getStagedContent(path: string) {
 	const staged = stagedChanges.value.find(item => item.path === path && !item.delete && item.encoding !== 'base64')
 	return staged?.content
@@ -826,6 +913,7 @@ async function commitStagedChanges() {
 	}
 
 	isCommittingChanges.value = true
+	closeDialog()
 	clearMessages()
 	statusMessage.value = `正在合并提交 ${stagedChanges.value.length} 项修改...`
 	try {
@@ -1247,6 +1335,220 @@ async function performManagedTagUpdate(source: string, normalizedTarget: string,
 	}
 }
 
+async function insertImageMarkdown(imagePath: string, alt = '图片') {
+	const sizeAttrs = bodyImageWidth.value ? `{width="${bodyImageWidth.value}"}` : ''
+	const markdownImage = `![${alt}](${imagePath})${sizeAttrs}`
+	const textarea = bodyTextarea.value
+	const start = textarea?.selectionStart ?? form.body.length
+	const end = textarea?.selectionEnd ?? start
+	form.body = `${form.body.slice(0, start)}${markdownImage}${form.body.slice(end)}`
+
+	await nextTick()
+	if (textarea) {
+		const cursor = start + markdownImage.length
+		textarea.focus()
+		textarea.setSelectionRange(cursor, cursor)
+	}
+}
+
+function imageRefPath(path: string) {
+	return `/${path.replace(publicPrefixRegex, '')}`
+}
+
+function getRepoImageSrc(path: string) {
+	return `https://raw.githubusercontent.com/${settings.owner.trim()}/${settings.repo.trim()}/${settings.branch.trim()}/${encodePath(path)}`
+}
+
+async function loadRepoImages() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再查看图片库。'
+		return
+	}
+	isLoadingImages.value = true
+	try {
+		const result = await githubRequest<{ tree: GithubTreeItem[] }>(
+			`${repoPath.value}/git/trees/${encodeURIComponent(settings.branch.trim())}?recursive=1`,
+		)
+		repoImagePaths.value = result.tree
+			.filter(item => item.type === 'blob' && item.path?.startsWith('public/images/') && imageFileRegex.test(item.path))
+			.map(item => item.path!)
+			.sort((a, b) => b.localeCompare(a))
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isLoadingImages.value = false
+	}
+}
+
+const galleryImages = computed(() => {
+	const deletedPaths = new Set(stagedChanges.value.filter(item => item.delete).map(item => item.path))
+	const stagedImages = stagedChanges.value
+		.filter(item => !item.delete && item.encoding === 'base64' && item.path.startsWith('public/images/') && item.content)
+		.map((item) => {
+			const extension = item.path.split('.').at(-1)?.toLowerCase() || 'png'
+			return {
+				path: item.path,
+				src: `data:${imageMimeMap[extension] || 'image/png'};base64,${item.content}`,
+				staged: true,
+			}
+		})
+	const stagedPaths = new Set(stagedImages.map(item => item.path))
+	const repoImages = repoImagePaths.value
+		.filter(path => !deletedPaths.has(path) && !stagedPaths.has(path))
+		.map(path => ({ path, src: getRepoImageSrc(path), staged: false }))
+	const keyword = imageSearch.value.trim().toLowerCase()
+	const all = [...stagedImages, ...repoImages]
+	if (!keyword)
+		return all
+	return all.filter(item => item.path.toLowerCase().includes(keyword))
+})
+
+function openImageLibrary() {
+	openDialog('images')
+	if (!repoImagePaths.value.length)
+		void loadRepoImages()
+}
+
+async function insertImageFromLibrary(path: string) {
+	const refPath = imageRefPath(path)
+	const alt = path.split('/').at(-1)?.replace(fileExtensionRegex, '') || '图片'
+	await insertImageMarkdown(refPath, alt)
+	closeDialog()
+	statusMessage.value = `已插入图片：${refPath}`
+}
+
+function setCoverFromLibrary(path: string) {
+	clearCoverPreviewUrl()
+	form.image = imageRefPath(path)
+	closeDialog()
+	statusMessage.value = `封面图已设置：${form.image}`
+}
+
+async function copyImagePath(path: string) {
+	const refPath = imageRefPath(path)
+	try {
+		await navigator.clipboard.writeText(refPath)
+		statusMessage.value = `已复制图片路径：${refPath}`
+	}
+	catch {
+		errorMessage.value = '复制失败，请手动复制路径。'
+	}
+}
+
+function removeLibraryImage(path: string) {
+	requestConfirmation({
+		action: () => {
+			stageChange({ delete: true, path })
+			statusMessage.value = `图片“${path}”的删除已暂存，点击“提交全部”后统一发布。`
+		},
+		confirmLabel: '暂存删除',
+		detail: '请先确认没有文章正在引用这张图片。',
+		message: `确定删除图片 ${path} 吗？`,
+		title: '删除图片',
+	})
+}
+
+async function fetchPostMarkdown(path: string) {
+	const staged = getStagedContent(path)
+	if (staged !== undefined)
+		return staged
+	const result = await githubRequest<GithubContent>(
+		`${repoPath.value}/contents/${encodePath(path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
+	)
+	return decodeBase64(result.content)
+}
+
+function extractImageRefs(markdownValue: string) {
+	const refs = new Set<string>()
+	const { meta } = parseMarkdownContent(markdownValue)
+	if (typeof meta.image === 'string' && meta.image.startsWith('/images/'))
+		refs.add(meta.image)
+	for (const matched of markdownValue.matchAll(markdownImageRefRegex))
+		refs.add(matched[1]!)
+	return [...refs]
+}
+
+async function openDeleteDialog() {
+	openDialog('delete')
+	deleteImageCandidates.value = []
+	if (!selectedPostOriginalPath.value || !canUseGithub.value)
+		return
+
+	isCheckingDeleteImages.value = true
+	try {
+		const targetPath = selectedPostOriginalPath.value
+		const refs = extractImageRefs(await fetchPostMarkdown(targetPath))
+		if (!refs.length)
+			return
+
+		const otherPosts = posts.value.filter(post => post.path !== targetPath)
+		const otherContents = await Promise.all(
+			otherPosts.map(post => fetchPostMarkdown(post.path).catch(() => '')),
+		)
+		deleteImageCandidates.value = refs.map((ref) => {
+			const usedElsewhere = otherContents.some(content => content.includes(ref))
+			return { checked: !usedElsewhere, path: `public${ref}`, ref, usedElsewhere }
+		})
+	}
+	catch {
+		// 检测失败不阻塞删除，仅不提供图片清理选项。
+		deleteImageCandidates.value = []
+	}
+	finally {
+		isCheckingDeleteImages.value = false
+	}
+}
+
+async function saveSiteSettings() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再保存站点设置。'
+		return
+	}
+	isSavingSite.value = true
+	clearMessages()
+	try {
+		const blogConfigPath = 'blog.config.ts'
+		const blogConfigCurrent = await githubRequest<GithubContent>(
+			`${repoPath.value}/contents/${blogConfigPath}?ref=${encodeURIComponent(settings.branch.trim())}`,
+		)
+		const blogConfigSource = getStagedContent(blogConfigPath) || decodeBase64(blogConfigCurrent.content)
+		if (!timeEstablishedRegex.test(blogConfigSource))
+			throw new Error('blog.config.ts 中找不到 timeEstablished 配置。')
+		const timeEstablished = siteForm.timeEstablished.trim()
+		stageChange({
+			content: blogConfigSource.replace(timeEstablishedRegex, `timeEstablished: '${timeEstablished.replace(quoteRegex, '')}'`),
+			path: blogConfigPath,
+		})
+
+		const appConfigPath = 'app/app.config.ts'
+		const appConfigCurrent = await githubRequest<GithubContent>(
+			`${repoPath.value}/contents/${encodePath(appConfigPath)}?ref=${encodeURIComponent(settings.branch.trim())}`,
+		)
+		const appConfigSource = getStagedContent(appConfigPath) || decodeBase64(appConfigCurrent.content)
+		if (!birthYearRegex.test(appConfigSource) || !wordCountRegex.test(appConfigSource))
+			throw new Error('app/app.config.ts 中找不到 birthYear 或 wordCount 配置。')
+		const birthYear = Math.round(Number(siteForm.birthYear)) || appConfig.component.stats.birthYear
+		const wordCount = siteForm.wordCount.trim().replace(quoteRegex, '')
+		stageChange({
+			content: appConfigSource
+				.replace(birthYearRegex, `birthYear: ${birthYear}`)
+				.replace(wordCountRegex, `wordCount: '${wordCount}'`),
+			path: appConfigPath,
+		})
+
+		closeDialog()
+		statusMessage.value = '站点设置已暂存，点击“提交全部”后统一发布，部署完成后前台生效。'
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isSavingSite.value = false
+	}
+}
+
 async function deleteSelectedPost() {
 	if (!isEditingExisting.value || !selectedPostOriginalPath.value || !selectedPostSha.value)
 		return
@@ -1255,11 +1557,17 @@ async function deleteSelectedPost() {
 	const deletedTitle = form.title || deletedPath
 	try {
 		stageChange({ delete: true, path: deletedPath })
+		const removedImages = deleteImageCandidates.value.filter(item => item.checked)
+		for (const item of removedImages)
+			stageChange({ delete: true, path: item.path })
+		deleteImageCandidates.value = []
 		posts.value = posts.value.filter(post => post.path !== deletedPath)
 		cachePosts()
 		closeDialog()
 		resetForm()
-		statusMessage.value = `文章“${deletedTitle}”的删除已暂存，点击“提交全部”后统一发布。`
+		statusMessage.value = removedImages.length
+			? `文章“${deletedTitle}”与 ${removedImages.length} 张关联图片的删除已暂存，点击“提交全部”后统一发布。`
+			: `文章“${deletedTitle}”的删除已暂存，点击“提交全部”后统一发布。`
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -1315,21 +1623,9 @@ async function uploadArticleImage(event: Event) {
 	try {
 		const imagePath = await uploadImageFile(file)
 		const alt = file.name.replace(fileExtensionRegex, '').trim() || '图片'
-		const sizeAttrs = bodyImageWidth.value ? `{width="${bodyImageWidth.value}"}` : ''
-		const markdownImage = `![${alt}](${imagePath})${sizeAttrs}`
-		const textarea = bodyTextarea.value
-		const start = textarea?.selectionStart ?? form.body.length
-		const end = textarea?.selectionEnd ?? start
-		form.body = `${form.body.slice(0, start)}${markdownImage}${form.body.slice(end)}`
+		await insertImageMarkdown(imagePath, alt)
 		bodyImagePreviewUrls.value[imagePath] = URL.createObjectURL(file)
 		statusMessage.value = '图片已上传并插入正文。'
-
-		await nextTick()
-		if (textarea) {
-			const cursor = start + markdownImage.length
-			textarea.focus()
-			textarea.setSelectionRange(cursor, cursor)
-		}
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -1343,6 +1639,7 @@ async function uploadArticleImage(event: Event) {
 onBeforeUnmount(() => {
 	clearCoverPreviewUrl()
 	clearBodyImagePreviewUrls()
+	window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
 
@@ -1404,19 +1701,27 @@ onBeforeUnmount(() => {
 				<Icon name="ph:tag-bold" />
 				<span>标签</span>
 			</button>
+			<button class="secondary-button" type="button" @click="openImageLibrary">
+				<Icon name="ph:images-bold" />
+				<span>图片库</span>
+			</button>
 			<button class="secondary-button" type="button" @click="openDialog('meta')">
 				<Icon name="ph:sliders-horizontal-bold" />
 				<span>设置</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openDialog('site')">
+				<Icon name="ph:gear-bold" />
+				<span>站点</span>
 			</button>
 			<button class="secondary-button" type="button" @click="resetForm">
 				<Icon name="ph:file-plus-bold" />
 				<span>新建</span>
 			</button>
-			<button v-if="isEditingExisting" class="secondary-button danger-button" type="button" @click="openDialog('delete')">
+			<button v-if="isEditingExisting" class="secondary-button danger-button" type="button" @click="openDeleteDialog">
 				<Icon name="ph:trash-bold" />
 				<span>删除</span>
 			</button>
-			<button class="publish-button" :disabled="isCommittingChanges || !stagedChangeCount" type="button" @click="commitStagedChanges">
+			<button class="publish-button" :disabled="isCommittingChanges || !stagedChangeCount" type="button" @click="openDialog('staged')">
 				<Icon :name="isCommittingChanges ? 'line-md:loading-twotone-loop' : 'ph:paper-plane-tilt-bold'" />
 				<span>{{ isCommittingChanges ? '提交中' : stagedChangeLabel }}</span>
 			</button>
@@ -1725,6 +2030,22 @@ onBeforeUnmount(() => {
 					<Icon name="ph:warning-circle-bold" />
 					<p>将暂存删除文章 <strong>{{ form.title }}</strong>，点击“提交全部”后统一发布。</p>
 					<code>{{ selectedPostOriginalPath }}</code>
+					<p v-if="isCheckingDeleteImages" class="delete-images-checking">
+						<Icon name="line-md:loading-twotone-loop" />
+						正在检测文章引用的图片…
+					</p>
+					<div v-else-if="deleteImageCandidates.length" class="delete-images-list">
+						<p>文章引用了以下图片，勾选后将一并暂存删除：</p>
+						<label v-for="item in deleteImageCandidates" :key="item.path" class="delete-image-row">
+							<input v-model="item.checked" type="checkbox">
+							<img :src="getRepoImageSrc(item.path)" alt="">
+							<span class="delete-image-info">
+								<code>{{ item.ref }}</code>
+								<small v-if="item.usedElsewhere" class="warning-text">其他文章仍在引用，默认保留</small>
+								<small v-else>仅此文章使用</small>
+							</span>
+						</label>
+					</div>
 					<div class="manager-actions">
 						<button class="secondary-button" type="button" @click="closeDialog">
 							取消
@@ -1732,6 +2053,96 @@ onBeforeUnmount(() => {
 						<button class="secondary-button danger-button" type="button" @click="deleteSelectedPost">
 							<Icon name="ph:trash-bold" />
 							<span>确认暂存删除</span>
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'staged'" class="dialog-content staged-dialog-content">
+					<p v-if="!stagedChanges.length" class="empty-text">
+						当前没有待提交的修改
+					</p>
+					<div v-else class="staged-list">
+						<div v-for="change in stagedChanges" :key="change.path" class="staged-row">
+							<span class="staged-type" :class="{ danger: change.delete }">{{ describeStagedChange(change).label }}</span>
+							<code>{{ change.path }}</code>
+							<button class="icon-button" title="撤销此项暂存" type="button" @click="unstageChange(change.path)">
+								<Icon name="ph:arrow-counter-clockwise-bold" />
+							</button>
+						</div>
+					</div>
+					<p v-if="stagedPersistFailed" class="warning-text">
+						暂存内容过大，无法保存到浏览器本地，刷新页面会丢失，请尽快提交。
+					</p>
+					<div class="manager-actions">
+						<button class="secondary-button" type="button" @click="closeDialog">
+							继续编辑
+						</button>
+						<button class="publish-button" :disabled="isCommittingChanges || !stagedChanges.length" type="button" @click="commitStagedChanges">
+							<Icon :name="isCommittingChanges ? 'line-md:loading-twotone-loop' : 'ph:paper-plane-tilt-bold'" />
+							<span>{{ isCommittingChanges ? '提交中' : `确认提交 ${stagedChanges.length} 项` }}</span>
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'images'" class="dialog-content images-dialog-content">
+					<div class="dialog-toolbar">
+						<label class="search-field">
+							<Icon name="ph:magnifying-glass-bold" />
+							<input v-model.trim="imageSearch" placeholder="搜索图片路径">
+						</label>
+						<button class="secondary-button" :disabled="!canUseGithub || isLoadingImages" type="button" @click="loadRepoImages">
+							<Icon :name="isLoadingImages ? 'line-md:loading-twotone-loop' : 'ph:arrow-clockwise-bold'" />
+							<span>刷新</span>
+						</button>
+					</div>
+					<div class="image-grid">
+						<figure v-for="item in galleryImages" :key="item.path" class="image-card">
+							<img :src="item.src" alt="" loading="lazy">
+							<span v-if="item.staged" class="image-badge">未提交</span>
+							<figcaption :title="item.path">
+								{{ item.path.split('/').at(-1) }}
+							</figcaption>
+							<div class="image-actions">
+								<button title="插入正文" type="button" @click="insertImageFromLibrary(item.path)">
+									<Icon name="ph:text-indent-bold" />
+								</button>
+								<button title="设为封面" type="button" @click="setCoverFromLibrary(item.path)">
+									<Icon name="ph:image-square-bold" />
+								</button>
+								<button title="复制路径" type="button" @click="copyImagePath(item.path)">
+									<Icon name="ph:copy-bold" />
+								</button>
+								<button class="danger" title="删除图片" type="button" @click="removeLibraryImage(item.path)">
+									<Icon name="ph:trash-bold" />
+								</button>
+							</div>
+						</figure>
+						<p v-if="!galleryImages.length" class="empty-text">
+							{{ isLoadingImages ? '正在读取图片…' : repoImagePaths.length ? '没有匹配的图片' : '仓库中还没有已上传的图片' }}
+						</p>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'site'" class="dialog-content site-form">
+					<label>
+						<span>建站时间</span>
+						<input v-model.trim="siteForm.timeEstablished" placeholder="2026-03-16 21:00:00">
+						<small>用于“博客统计”卡片的运营时长计算。</small>
+					</label>
+					<label>
+						<span>生日年份</span>
+						<input v-model.number="siteForm.birthYear" min="1900" step="1" type="number">
+						<small>用于归档页面每年标题旁的年龄显示。</small>
+					</label>
+					<label>
+						<span>字数标语</span>
+						<input v-model.trim="siteForm.wordCount" placeholder="持续更新中">
+						<small>“博客统计”卡片的预置文本；文章数与字数由内容自动统计，无需手填。</small>
+					</label>
+					<div class="manager-actions">
+						<button class="secondary-button" :disabled="!canUseGithub || isSavingSite" type="button" @click="saveSiteSettings">
+							<Icon :name="isSavingSite ? 'line-md:loading-twotone-loop' : 'ph:floppy-disk-bold'" />
+							<span>{{ isSavingSite ? '暂存中' : '暂存站点设置' }}</span>
 						</button>
 					</div>
 				</div>
@@ -2048,6 +2459,18 @@ button:disabled {
 }
 
 .dialog-delete {
+	width: min(34rem, 100%);
+}
+
+.dialog-images {
+	width: min(52rem, 100%);
+}
+
+.dialog-staged {
+	width: min(40rem, 100%);
+}
+
+.dialog-site {
 	width: min(30rem, 100%);
 }
 
@@ -2629,6 +3052,214 @@ textarea {
 	.manager-actions {
 		width: 100%;
 		margin-block-start: 0.5rem;
+	}
+}
+
+.warning-text {
+	font-size: 0.78rem;
+	color: var(--c-warning);
+}
+
+.delete-images-checking {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.82rem;
+	color: var(--c-text-2);
+}
+
+.delete-images-list {
+	display: grid;
+	gap: 0.5rem;
+	width: 100%;
+	text-align: start;
+
+	> p {
+		font-size: 0.82rem;
+		color: var(--c-text-2);
+	}
+}
+
+.delete-image-row {
+	display: grid;
+	grid-template-columns: auto 3.5rem minmax(0, 1fr);
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.4rem 0.5rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.45rem;
+	cursor: pointer;
+
+	input[type='checkbox'] {
+		width: 1rem;
+		height: 1rem;
+	}
+
+	img {
+		width: 3.5rem;
+		height: 2.5rem;
+		border-radius: 0.3rem;
+		background-color: var(--c-bg-1);
+		object-fit: cover;
+	}
+}
+
+.delete-image-info {
+	display: grid;
+	gap: 0.15rem;
+	min-width: 0;
+
+	code {
+		overflow: hidden;
+		font-size: 0.74rem;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	small {
+		font-size: 0.72rem;
+		color: var(--c-text-3);
+	}
+}
+
+.staged-dialog-content {
+	grid-template-rows: minmax(0, 1fr) auto auto;
+	overflow: hidden;
+}
+
+.staged-list {
+	display: grid;
+	align-content: start;
+	gap: 0.4rem;
+	overflow: auto;
+	min-height: 0;
+	scrollbar-width: thin;
+}
+
+.staged-row {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.45rem 0.6rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.45rem;
+	background-color: var(--c-bg-1);
+
+	code {
+		overflow: hidden;
+		font-size: 0.76rem;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+}
+
+.staged-type {
+	flex: none;
+	padding: 0.1rem 0.45rem;
+	border-radius: 0.3rem;
+	background-color: var(--c-primary-soft);
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: var(--c-primary);
+
+	&.danger {
+		background-color: var(--c-error-soft);
+		color: var(--c-error);
+	}
+}
+
+.images-dialog-content {
+	grid-template-rows: auto minmax(0, 1fr);
+	overflow: hidden;
+}
+
+.image-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+	align-content: start;
+	gap: 0.65rem;
+	overflow: auto;
+	min-height: 12rem;
+	padding-inline-end: 0.2rem;
+	scrollbar-width: thin;
+
+	.empty-text {
+		grid-column: 1 / -1;
+	}
+}
+
+.image-card {
+	display: grid;
+	position: relative;
+	gap: 0.35rem;
+	overflow: hidden;
+	padding: 0.45rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.45rem;
+	background-color: var(--c-bg-1);
+
+	img {
+		width: 100%;
+		height: 6rem;
+		border-radius: 0.3rem;
+		background-color: var(--ld-bg-card);
+		object-fit: cover;
+	}
+
+	figcaption {
+		overflow: hidden;
+		font-size: 0.72rem;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		color: var(--c-text-2);
+	}
+}
+
+.image-badge {
+	position: absolute;
+	inset-block-start: 0.65rem;
+	inset-inline-start: 0.65rem;
+	padding: 0.08rem 0.4rem;
+	border-radius: 0.3rem;
+	background-color: var(--c-warning);
+	font-size: 0.68rem;
+	font-weight: 700;
+	color: var(--c-bg);
+}
+
+.image-actions {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.25rem;
+
+	button {
+		display: inline-flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		min-height: 1.8rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.35rem;
+		background-color: var(--ld-bg-card);
+		color: var(--c-text-2);
+
+		&:hover {
+			border-color: var(--c-primary);
+			color: var(--c-primary);
+		}
+
+		&.danger:hover {
+			border-color: var(--c-error);
+			color: var(--c-error);
+		}
+	}
+}
+
+.site-form {
+	label small {
+		font-size: 0.72rem;
+		color: var(--c-text-3);
 	}
 }
 
