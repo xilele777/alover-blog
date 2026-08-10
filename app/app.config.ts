@@ -116,6 +116,7 @@ export default defineAppConfig({
 				/* { icon: 'ph:link-bold', text: '友链', url: '/link' }, */
 				{ icon: 'ph:tag-bold', text: '标签', url: '/tags' },
 				{ icon: 'ph:archive-bold', text: '归档', url: '/archive' },
+				{ icon: 'ph:book-open-bold', text: 'Wiki', url: 'https://wiki.alover.me' },
 			],
 		},
 	] satisfies Nav,
