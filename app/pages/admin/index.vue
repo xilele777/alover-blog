@@ -976,6 +976,12 @@ async function commitStagedChanges() {
 		})
 		if (!tree.sha)
 			throw new Error('无法创建暂存文件树。')
+		// 文件树与父提交完全一致时，创建出来的会是一个没有任何改动的空 commit
+		if (tree.sha === commit.tree?.sha) {
+			clearStagedChanges()
+			statusMessage.value = '暂存内容与仓库现有文件完全一致，没有需要提交的改动。'
+			return
+		}
 		const nextCommit = await githubRequest<{ sha?: string, html_url?: string }>(`${repoPath.value}/git/commits`, {
 			method: 'POST',
 			body: JSON.stringify({
@@ -1826,6 +1832,17 @@ async function saveLogConfig() {
 		errorMessage.value = '请先完成 GitHub 配置，再保存更新日志。'
 		return
 	}
+	// 未点“新增一条”就直接暂存时，自动收编草稿，避免填写内容被静默丢弃
+	const draftLabel = logDraft.label.trim()
+	const draftValue = logDraft.value.trim()
+	if (draftLabel && draftValue) {
+		addLogEntry()
+	}
+	else if (draftValue) {
+		// 日期在打开弹窗时已自动填好，只可能是被手动清空
+		errorMessage.value = '新增的更新日志还没填日期。'
+		return
+	}
 	if (!logEntries.value.length) {
 		errorMessage.value = '至少保留一条更新日志。'
 		return
@@ -1838,7 +1855,12 @@ async function saveLogConfig() {
 	clearMessages()
 	try {
 		const source = getStagedContent(logFilePath) || await fetchLogSource()
-		stageChange({ content: migrateLogConfigSource(source), path: logFilePath })
+		const nextSource = migrateLogConfigSource(source)
+		if (nextSource === source) {
+			errorMessage.value = '更新日志没有任何改动，无需暂存。'
+			return
+		}
+		stageChange({ content: nextSource, path: logFilePath })
 		closeDialog()
 		statusMessage.value = '更新日志已暂存，点击“提交全部”后统一发布，部署完成后归档页生效。'
 	}
