@@ -290,6 +290,7 @@ function getTagScale(tag: TagGroup) {
 
 .tag-article-list {
 	display: grid;
+	align-content: start;
 	gap: 1.1rem;
 	margin-top: 2rem;
 }
