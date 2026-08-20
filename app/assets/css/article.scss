@@ -149,4 +149,61 @@
 			}
 		}
 	}
+
+	// 周报版式：面向万字级长文的可读性优化。
+	// 全部基于标准 Markdown 元素选择器，正文结构变化时依然成立。
+	&.md-weekly {
+		// 大节断点：拉开留白，滚动时形成明确节奏
+		> h2 {
+			margin-top: 2.5em;
+			padding-bottom: 0.3em;
+			border-bottom: 1px solid var(--c-border);
+			font-size: 1.4em;
+		}
+
+		// 小节标记：左侧色条，弱化层级不与 h2 争抢
+		> h3 {
+			padding-inline-start: 0.6em;
+			border-inline-start: 4px solid var(--c-primary);
+			font-size: 1.1em;
+		}
+
+		// 长列表条目是周报的信息主体，需要更宽松的呼吸感
+		ul, ol {
+			padding-inline-start: 1.4em;
+
+			> li {
+				margin: 0.8em 0;
+				line-height: 1.9;
+			}
+		}
+
+		// 条目内的首个粗体承担「这条讲什么」的小标题职能。
+		// 周报中粗体密度极高，若沿用全局的高亮底会满屏喧闹，
+		// 故改为纯色强调。
+		li > strong:first-child {
+			background: none;
+			color: var(--c-primary);
+		}
+
+		// 周报中大节分隔用得密集，压低为极轻的一道线
+		> hr {
+			opacity: 0.5;
+			margin: 2em 0;
+			border: none;
+			border-top: 1px solid var(--c-border);
+		}
+
+		blockquote {
+			font-size: 0.95em;
+		}
+
+		// 文末免责声明等斜体独立段落
+		> p > em:only-child {
+			display: inline-block;
+			font-size: 0.9em;
+			line-height: 1.7;
+			color: var(--c-text-3);
+		}
+	}
 }

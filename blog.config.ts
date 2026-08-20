@@ -29,6 +29,10 @@ const basicConfig = {
 // @keep-sorted
 // BLOG_ADMIN_CATEGORIES_START
 const managedCategories = {
+	"周报": {
+		"icon": "ph:newspaper-bold",
+		"color": "#f59e0b"
+	},
 	"技术": {
 		"icon": "ph:mouse-bold",
 		"color": "#33aaff"
@@ -65,6 +69,7 @@ const blogConfig = {
 		types: {
 			tech: {},
 			story: {},
+			weekly: {},
 		},
 		/** 分类排序方式，键为排序字段，值为显示名称 */
 		order: {

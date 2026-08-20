@@ -23,6 +23,7 @@
     "lint:fix": "eslint --fix && stylelint '**/*.{vue,scss}' --fix",
     "init-project": "tsx scripts/init-project",
     "new": "tsx scripts/new-blog",
+    "new:weekly": "tsx scripts/new-weekly",
     "check:feed": "tsx scripts/framework/get-feed",
     "check:feed/all": "tsx scripts/framework/check-all-feeds"
   },
