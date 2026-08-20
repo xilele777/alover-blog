@@ -72,7 +72,7 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 派生数据：
 
 - **期号**：从 `title` 正则提取 `#(\d+)`，解析失败则回退为不显示期号徽记。
-- **日期范围**：优先取 `title` 中已有的 `（YYYY.MM.DD - MM.DD）`；无法解析时由 `date` 反推所在周的周一至周日（使用 `toZonedTemporal`，时区取 `blogConfig.timeZone`）。
+- **日期范围**：优先取 `title` 中已有的 `（YYYY.MM.DD - MM.DD）`；无法解析时由 `date` 反推「发布日之前的 7 天」，即 `date-7 → date-1`（使用 `toZonedTemporal`，时区取 `blogConfig.timeZone`）。这样无论周几发布，覆盖区间始终是完整的 7 天。
 - **显示标题**：剥离 `title` 中的期号与括号日期部分后的剩余文本；若剥离后为空则使用完整 `title`。
 
 ### 布局
@@ -140,7 +140,7 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 复用 `scripts/new-blog.ts` 的 `@clack/prompts` + `Temporal` 结构与 VS Code 打开逻辑。差异：
 
 1. **自动期号**：扫描 `content/posts/weekly/**/*.md`，从文件名 `issue-(\d+)` 取最大值 +1，三位补零。目录为空时从 `001` 起。
-2. **自动周范围**：由当前日期反推上一个完整周（周一至周日），用于标题中的日期区间。允许通过交互确认或覆盖。
+2. **自动周范围**：由当前日期反推之前的 7 天（`today-7 → today-1`），用于标题中的日期区间。允许通过交互确认或覆盖。
 3. **自动路径**：`content/posts/weekly/<year>/<YYYY-MM-DD>-issue-<NNN>.md`，目录不存在则创建；文件已存在则报错退出。
 4. **生成内容**：仅 frontmatter，正文留空。`title`/`date`/`categories: [快报]`/`type: weekly`/`tags: [AI, 周报]` 预填，`description` 留空占位待填。
 5. 不询问分类、版式、permalink——这些对快报是固定的。
