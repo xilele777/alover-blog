@@ -1,4 +1,4 @@
-# 每周快报（AI 前沿周报）功能设计
+# AI 前沿周报功能设计
 
 日期：2026-08-20
 
@@ -8,22 +8,22 @@
 
 目标：
 
-1. 左侧导航新增「快报」入口。
+1. 左侧导航新增「周报」入口。
 2. `/weekly` 落地页以期号时间轴形式展示历期。
-3. 快报正文有专属排版，适配长文可读性。
+3. 周报正文有专属排版，适配长文可读性。
 4. 提供新建一期的脚手架脚本。
 5. 提供独立订阅源 `/weekly.xml`。
-6. 首页文章流不混入快报。
+6. 首页文章流不混入周报。
 
 ## 非目标
 
 - 不引入独立的 content collection 或新的 schema 结构。
 - 不规定正文的板块结构（作者的写作结构可能变化，样式必须对通用 Markdown 元素成立）。
-- 不做首页「最新快报」小卡片（本期不做）。
+- 不做首页「最新周报」小卡片（本期不做）。
 
 ## 内容模型
 
-快报复用现有文章体系，存放于 `content/posts/weekly/<year>/`，例如：
+周报复用现有文章体系，存放于 `content/posts/weekly/<year>/`，例如：
 
 ```
 content/posts/weekly/2026/2026-08-20-issue-001.md
@@ -40,7 +40,7 @@ content/posts/weekly/2026/2026-08-20-issue-001.md
 title: AI 前沿周报 #001（2026.08.13 - 08.19）
 date: 2026-08-20
 description: 一段话概括本期主线，用于列表页摘要、SEO 与 RSS。
-categories: [快报]
+categories: [周报]
 tags: [AI, 周报, DeepSeek, LLM, Agent]
 type: weekly
 ---
@@ -53,7 +53,7 @@ type: weekly
 
 ### `blog.config.ts` 变更
 
-- `managedCategories` 新增：`"快报": { "icon": "ph:newspaper-bold", "color": "#f59e0b" }`。该块位于 `BLOG_ADMIN_CATEGORIES_START/END` 标记之间，由 admin 管理，需保持格式一致。
+- `managedCategories` 新增：`"周报": { "icon": "ph:newspaper-bold", "color": "#f59e0b" }`。该块位于 `BLOG_ADMIN_CATEGORIES_START/END` 标记之间，由 admin 管理，需保持格式一致。
 - `article.types` 新增 `weekly: {}`。
 
 ## 落地页 `/weekly`
@@ -79,7 +79,7 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 
 ```
 ┌─────────────────────────────────────────┐
-│  AI 前沿快报          每周一更 · 共 N 期  │ ← 页头，含订阅按钮
+│  AI 前沿周报          每周一更 · 共 N 期  │ ← 页头，含订阅按钮
 ├─────────────────────────────────────────┤
 │  ╔═══════════════════════════════════╗  │
 │  ║ #001   08.13 → 08.19              ║  │ ← 最新一期：高亮大卡片
@@ -96,21 +96,21 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 - 期号放大作为视觉锚点，使用 `var(--font-stroke-free)`、`tabular-nums`，与 `archive.vue` 的年份处理保持同一语言。
 - 往期项左侧竖线时间轴，节点对齐期号。
 - 整卡可点击，跳转 `article.path`。
-- 空状态：无任何快报时展示 `ZError` 或简短占位文案，不渲染空时间轴。
+- 空状态：无任何周报时展示 `ZError` 或简短占位文案，不渲染空时间轴。
 - 侧栏沿用 `layoutStore.setAside(['blog-stats'])`。
-- SEO：`useSeoMeta` 设置 title「快报」与描述。
+- SEO：`useSeoMeta` 设置 title「周报」与描述。
 
 ### 导航
 
 `app/app.config.ts` 的 `nav[0].items` 中，在 Wiki 项之前插入：
 
 ```ts
-{ icon: 'ph:newspaper-bold', text: '快报', url: '/weekly' },
+{ icon: 'ph:newspaper-bold', text: '周报', url: '/weekly' },
 ```
 
 ### 首页排除
 
-`app/pages/index.vue` 在 `listRaw` 之后、`usePublishedArticles` 之前插入过滤，剔除 `stem`（或 `path`）以 `posts/weekly/` 前缀的条目。`archive.vue` 与 `tags.vue` **保持包含**快报——归档与标签本就应覆盖全站内容。
+`app/pages/index.vue` 在 `listRaw` 之后、`usePublishedArticles` 之前插入过滤，剔除 `stem`（或 `path`）以 `posts/weekly/` 前缀的条目。`archive.vue` 与 `tags.vue` **保持包含**周报——归档与标签本就应覆盖全站内容。
 
 ## 正文排版 `.md-weekly`
 
@@ -119,7 +119,7 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 全部使用标准 Markdown 元素选择器，不依赖特定板块名，作者更换正文结构后样式依然成立：
 
 - **`h2`**：大节断点。加大上方留白与字号，底部细分隔线，滚动时形成明确的节奏。
-- **`h3`**：小节标记。左侧色条（取快报分类色 `#f59e0b`），字号弱化，不与 `h2` 抢层级。
+- **`h3`**：小节标记。左侧色条（取周报分类色 `#f59e0b`），字号弱化，不与 `h2` 抢层级。
 - **`li`**：核心可读性目标。条目间距加大、行高放宽、左内缩加深。`li` 内的首个 `strong` 承担「这条讲什么」的小标题职能，赋予强调色与轻微字重提升。
 - **`hr`**：作者使用密集，压低为极轻分隔（低透明度、无实线感）。
 - **`blockquote`**：轻量来源/引用样式，小字号。
@@ -142,18 +142,18 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 1. **自动期号**：扫描 `content/posts/weekly/**/*.md`，从文件名 `issue-(\d+)` 取最大值 +1，三位补零。目录为空时从 `001` 起。
 2. **自动周范围**：由当前日期反推之前的 7 天（`today-7 → today-1`），用于标题中的日期区间。允许通过交互确认或覆盖。
 3. **自动路径**：`content/posts/weekly/<year>/<YYYY-MM-DD>-issue-<NNN>.md`，目录不存在则创建；文件已存在则报错退出。
-4. **生成内容**：仅 frontmatter，正文留空。`title`/`date`/`categories: [快报]`/`type: weekly`/`tags: [AI, 周报]` 预填，`description` 留空占位待填。
-5. 不询问分类、版式、permalink——这些对快报是固定的。
+4. **生成内容**：仅 frontmatter，正文留空。`title`/`date`/`categories: [周报]`/`type: weekly`/`tags: [AI, 周报]` 预填，`description` 留空占位待填。
+5. 不询问分类、版式、permalink——这些对周报是固定的。
 
 ## 独立订阅源 `/weekly.xml`
 
 新增 `server/routes/weekly.xml.get.ts`，复制 `server/routes/atom.xml.get.ts` 的实现，改动：
 
 - 查询条件 `where('stem', 'LIKE', 'posts/weekly/%')`。
-- feed 的 `id` / `title` / `subtitle` / `self link` 改为快报专属。
+- feed 的 `id` / `title` / `subtitle` / `self link` 改为周报专属。
 - 其余（日期格式化、URL 拼接、`renderContent`、`XMLBuilder` 配置）保持一致。
 
-主 `atom.xml` **保持包含**快报——订阅全站的读者本就应当收到。
+主 `atom.xml` **保持包含**周报——订阅全站的读者本就应当收到。
 
 `/weekly` 页头提供订阅入口，指向 `/weekly.xml`。
 
@@ -161,14 +161,14 @@ useAsyncData('weekly_posts', () => useArticleIndexOptions('posts/weekly/%'))
 
 - **期号存于 title 的正则解析**：换来零 schema 改动与归档页的自然显示，代价是标题格式需保持稳定。解析失败时优雅降级（不显示期号徽记），不抛错。
 - **`atom.xml.get.ts` 代码复制**：两个 feed 路由会有约 80% 重复代码。当前仅两处，复制比抽象更清晰；若将来出现第三个 feed，再抽取共享的 builder 模块。
-- **首页排除的实现位置**：在客户端 composable 层过滤而非查询层，意味着快报数据仍会进入首页的 payload。数据量小（每周一篇），可接受。
+- **首页排除的实现位置**：在客户端 composable 层过滤而非查询层，意味着周报数据仍会进入首页的 payload。数据量小（每周一篇），可接受。
 
 ## 验收标准
 
-1. 左侧导航出现「快报」，点击进入 `/weekly`。
+1. 左侧导航出现「周报」，点击进入 `/weekly`。
 2. `/weekly` 正确渲染最新一期高亮卡片与往期时间轴，期号与日期范围解析正确。
 3. 点击任一期进入文章页，正文应用 `.md-weekly` 排版，TOC 覆盖 `h2`/`h3`，深浅色模式均正常。
-4. 首页文章流不含快报；归档页与标签页含快报。
+4. 首页文章流不含周报；归档页与标签页含周报。
 5. `pnpm new:weekly` 生成正确路径与自增期号的骨架文件并打开编辑器。
-6. `/weekly.xml` 可正常解析，仅含快报条目；`/atom.xml` 仍含快报。
+6. `/weekly.xml` 可正常解析，仅含周报条目；`/atom.xml` 仍含周报。
 7. `pnpm lint` 通过。
