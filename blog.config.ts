@@ -1,13 +1,13 @@
 import type { FeedEntry } from './app/types/feed'
 
 const basicConfig = {
-	title: '小锅巴的个人博客',
+	title: '小锅巴',
 	subtitle: '博客',
 	// 长 description 利好于 SEO
 	description: '这是我的个人博客，用于记录自己的学习与生活。在非个人干涉的情况下，博客具有接近匿名的特性，因此我把它当作一个私人的记事本。',
 	author: {
 		name: '小锅巴',
-		avatar: '/avatar.png',
+		avatar: '/avatar.jpg',
 		email: 'xiaoguoba6@gmail.com',
 		homepage: 'https://github.com/xilele777',
 	},
