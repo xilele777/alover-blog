@@ -97,6 +97,8 @@ const blogConfig = {
 	scripts: [
 		// Twikoo 评论系统
 		{ src: 'https://lib.baomitu.com/twikoo/1.6.44/twikoo.min.js', defer: true },
+		// Umami 统计
+		{ 'src': 'https://cloud.umami.is/script.js', 'defer': true, 'data-website-id': '8083da2c-7b1c-4088-8a4b-568d7aea742a', 'data-domains': 'alover.me' },
 	],
 
 	/** 自己部署的 Twikoo 服务 */
