@@ -10,6 +10,8 @@ declare global {
 			}) => void
 			version: string
 		}
-		_hmt?: any[]
+		umami?: {
+			track: (name: string, data?: Record<string, unknown>) => void
+		}
 	}
 }
