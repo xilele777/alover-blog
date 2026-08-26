@@ -44,10 +44,6 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 		<h1 class="treasure-title">
 			藏宝阁
 		</h1>
-		<p class="treasure-subtitle">
-			我珍藏的那些好东西
-		</p>
-		<span class="treasure-count">共 {{ items.length }} 件收藏</span>
 	</header>
 
 	<div v-if="items.length" class="poster-grid">
@@ -74,8 +70,8 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 				</span>
 				<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
 			</div>
-			<div class="poster-body">
-				<h3>{{ item.title }}</h3>
+			<div class="poster-info">
+				<h3 class="poster-title">{{ item.title }}</h3>
 				<p v-if="item.description" class="poster-description">{{ item.description }}</p>
 			</div>
 		</a>
@@ -95,30 +91,13 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 }
 
 .treasure-header {
-	position: relative;
-	margin-bottom: 1.5em;
+	margin-bottom: 1rem;
 }
 
 .treasure-title {
 	margin: 0;
 	font-size: 1.6em;
 	font-weight: 800;
-}
-
-.treasure-subtitle {
-	margin: 0.2em 0 0;
-	font-size: 0.9em;
-	color: var(--c-text-3);
-}
-
-.treasure-count {
-	display: inline-block;
-	margin-top: 0.65rem;
-	padding: 0.22rem 0.55rem;
-	border: 1px solid var(--c-border);
-	border-radius: 0.35rem;
-	font-size: 0.72rem;
-	color: var(--c-text-3);
 }
 
 .poster-grid {
@@ -128,6 +107,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 }
 
 .poster-card {
+	position: relative;
 	overflow: hidden;
 	border: 1px solid var(--c-border);
 	border-radius: 0.55em;
@@ -150,8 +130,14 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 			transform: translate(0, 0);
 		}
 
+		.poster-info {
+			padding-top: 3.2rem;
+			background: linear-gradient(transparent 0%, rgb(0 0 0 / 82%) 42%, rgb(0 0 0 / 94%) 100%);
+		}
+
 		.poster-description {
-			color: var(--c-text);
+			opacity: 1;
+			max-height: 3em;
 		}
 	}
 }
@@ -167,6 +153,45 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	aspect-ratio: 4 / 5;
 	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	object-fit: cover;
+}
+
+.poster-info {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	position: absolute;
+	inset: auto 0 0;
+	min-height: 42%;
+	padding: 2.6rem 0.7rem 0.7rem;
+	background: linear-gradient(transparent 0%, rgb(0 0 0 / 76%) 65%, rgb(0 0 0 / 90%) 100%);
+	color: white;
+	transition: padding-top 0.25s ease, background 0.25s ease;
+}
+
+.poster-title {
+	display: block;
+	overflow: hidden;
+	margin: 0;
+	font-size: 0.92rem;
+	font-weight: 650;
+	line-height: 1.35;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.poster-description {
+	display: -webkit-box;
+	overflow: hidden;
+	opacity: 0;
+	max-height: 0;
+	margin: 0.25rem 0 0;
+	font-size: 0.76rem;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	line-height: 1.45;
+	color: rgb(255 255 255 / 82%);
+	transition: max-height 0.25s ease, opacity 0.2s ease;
+	-webkit-box-orient: vertical;
 }
 
 .type-pill {
@@ -204,8 +229,8 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	align-items: center;
 	gap: 0.2rem;
 	position: absolute;
+	right: 0.5rem;
 	bottom: 0.5rem;
-	left: 0.5rem;
 	padding: 0.22rem 0.42rem;
 	border-radius: 0.3rem;
 	background: rgb(0 0 0 / 68%);
@@ -219,42 +244,15 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	}
 }
 
-.poster-body {
-	display: grid;
-	gap: 0.35rem;
-	padding: 0.65rem 0.7rem 0.7rem;
-}
-
-.poster-body h3 {
-	display: -webkit-box;
-	overflow: hidden;
-	margin: 0;
-	font-size: 0.9rem;
-	font-weight: 650;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
-	line-height: 1.35;
-	color: var(--c-text);
-	-webkit-box-orient: vertical;
-}
-
-.poster-description {
-	display: -webkit-box;
-	overflow: hidden;
-	margin: 0;
-	font-size: 0.76rem;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
-	line-height: 1.45;
-	color: var(--c-text-2);
-	transition: color 0.2s;
-	-webkit-box-orient: vertical;
-}
-
 @media (max-width: $breakpoint-mobile) {
 	.poster-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6em;
+	}
+
+	.poster-description {
+		opacity: 1;
+		max-height: 3em;
 	}
 }
 </style>

@@ -91,9 +91,6 @@ const filteredRepos = computed(() => {
 			<h1 class="projects-title">
 				项目
 			</h1>
-			<p class="projects-subtitle">
-				我的开源项目与作品
-			</p>
 		</div>
 		<UtilLink
 			class="github-link"
@@ -184,12 +181,6 @@ const filteredRepos = computed(() => {
 	margin: 0;
 	font-size: 1.6em;
 	font-weight: 800;
-}
-
-.projects-subtitle {
-	margin: 0.2em 0 0;
-	font-size: 0.9em;
-	color: var(--c-text-3);
 }
 
 .github-link {
