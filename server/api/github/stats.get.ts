@@ -14,20 +14,23 @@ interface GqlResponse {
 					totalContributions: number
 					weeks: { contributionDays: ContributionDay[] }[]
 				}
-			}
-			repositories?: {
-				nodes: {
-					stargazerCount: number
-					isFork: boolean
-					defaultBranchRef?: { target?: { history?: { totalCount: number } } }
+				commitContributionsByRepository: {
+					contributions: {
+						totalCount: number
+						nodes: { occurredAt: string }[]
+					}
 				}[]
 			}
+			repositories?: {
+				totalCount: number
+			}
+			starredRepositories?: { totalCount: number }
 		}
 	}
 	errors?: unknown[]
 }
 
-// 单次 GraphQL 查询：贡献日历（热力图）+ 仓库统计（总数/私有/star/commit）
+// 单次 GraphQL 查询：贡献日历 + 仓库统计 + 本人提交贡献
 const QUERY = /* GraphQL */ `
 	query {
 		user(login: "xilele777") {
@@ -42,22 +45,18 @@ const QUERY = /* GraphQL */ `
 						}
 					}
 				}
-			}
-			repositories(ownerAffiliations: OWNER, first: 100) {
-				nodes {
-					stargazerCount
-					isFork
-					defaultBranchRef {
-						target {
-							... on Commit {
-								history(author: { user: "xilele777" }) {
-									totalCount
-								}
-							}
-						}
+				commitContributionsByRepository {
+					repository { name }
+					contributions(first: 100) {
+						totalCount
+						nodes { occurredAt }
 					}
 				}
 			}
+			repositories(ownerAffiliations: OWNER, first: 100) {
+				totalCount
+			}
+			starredRepositories(first: 1) { totalCount }
 		}
 	}
 `
@@ -80,8 +79,16 @@ export default cachedEventHandler(
 
 			const calendar = json.data?.user?.contributionsCollection?.contributionCalendar
 			const repos = json.data?.user?.repositories
-			if (!calendar || !repos)
+			const starred = json.data?.user?.starredRepositories
+			const commitContributions = json.data?.user?.contributionsCollection?.commitContributionsByRepository
+			if (!calendar || !repos || !starred || !commitContributions)
 				return null
+
+			const commitTotal = commitContributions.reduce((sum, item) => sum + item.contributions.totalCount, 0)
+			const recentCommitDate = commitContributions
+				.flatMap(item => item.contributions.nodes.map(node => node.occurredAt))
+				.sort()
+				.at(-1) || null
 
 			return {
 				contributions: {
@@ -89,10 +96,10 @@ export default cachedEventHandler(
 					weeks: calendar.weeks,
 				},
 				stats: {
-					repoStarred: repos.nodes.filter(r => r.stargazerCount > 0).length,
-					commitTotal: repos.nodes
-						.filter(r => !r.isFork)
-						.reduce((sum, r) => sum + (r.defaultBranchRef?.target?.history?.totalCount || 0), 0),
+					repoTotal: repos.totalCount,
+					repoStarred: starred.totalCount,
+					commitTotal,
+					recentCommitDate,
 				},
 			}
 		}
