@@ -40,7 +40,7 @@ jobs:
         env:
           # Prefer a personal token so private repositories are included in the count.
           # Fall back to the ephemeral Actions token for public-only statistics.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_STATS_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.BLOG_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         run: pnpm generate
 
       - name: Upload artifact
