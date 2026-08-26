@@ -69,20 +69,14 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 					class="poster-img"
 				/>
 				<span class="type-pill"><Icon :name="item.categoryIcon" />{{ item.categoryName }}</span>
+				<span v-if="item.rating" class="rating-pill" :aria-label="`${item.rating} 星`">
+					<Icon name="ph:star-fill" />{{ item.rating }}
+				</span>
 				<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
 			</div>
 			<div class="poster-body">
 				<h3>{{ item.title }}</h3>
 				<p v-if="item.description" class="poster-description">{{ item.description }}</p>
-				<div v-if="item.rating" class="poster-rating" :aria-label="`${item.rating} 星`">
-					<Icon
-						v-for="i in 5"
-						:key="i"
-						name="ph:star-fill"
-						:class="{ on: i <= item.rating }"
-					/>
-					<span>{{ item.rating }}</span>
-				</div>
 			</div>
 		</a>
 	</div>
@@ -205,6 +199,26 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	transition: opacity 0.2s, transform 0.2s;
 }
 
+.rating-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+	position: absolute;
+	bottom: 0.5rem;
+	left: 0.5rem;
+	padding: 0.22rem 0.42rem;
+	border-radius: 0.3rem;
+	background: rgb(0 0 0 / 68%);
+	backdrop-filter: blur(3px);
+	font-size: 0.68rem;
+	font-weight: 650;
+	color: #F5C518;
+
+	> .iconify {
+		font-size: 0.75rem;
+	}
+}
+
 .poster-body {
 	display: grid;
 	gap: 0.35rem;
@@ -229,34 +243,12 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	overflow: hidden;
 	margin: 0;
 	font-size: 0.76rem;
-	-webkit-line-clamp: 3;
-	line-clamp: 3;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	line-height: 1.45;
 	color: var(--c-text-2);
 	transition: color 0.2s;
 	-webkit-box-orient: vertical;
-}
-
-.poster-rating {
-	display: flex;
-	align-items: center;
-	gap: 0.15em;
-	margin-top: 0.1em;
-
-	> .iconify {
-		font-size: 0.78rem;
-		color: var(--c-border-strong);
-
-		&.on {
-			color: #F5C518;
-		}
-	}
-
-	span {
-		margin-inline-start: 0.25rem;
-		font-size: 0.72rem;
-		color: var(--c-text-3);
-	}
 }
 
 @media (max-width: $breakpoint-mobile) {
