@@ -1,0 +1,25 @@
+# 置顶/自定义项目（非 GitHub 仓库）
+pinned:
+  - title: 个人博客
+    description: 基于 Nuxt 4 + Clarity 主题的个人博客，记录学习与生活
+    link: https://alover.me
+    cover: /images/projects/blog.jpg
+    tags:
+      - Nuxt
+      - Vue
+      - TypeScript
+    icon: ph:globe-bold
+  - title: Wiki 知识库
+    description: 个人知识管理与分享平台
+    link: https://wiki.alover.me
+    tags:
+      - Wiki
+      - Knowledge
+    icon: ph:book-open-bold
+
+# GitHub 配置
+github:
+  username: xilele777
+  exclude:
+    - dotfiles
+    - my_blogs_pro
