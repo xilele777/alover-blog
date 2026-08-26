@@ -71,8 +71,10 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 				<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
 			</div>
 			<div class="poster-info">
-				<h3 class="poster-title">{{ item.title }}</h3>
 				<p v-if="item.description" class="poster-description">{{ item.description }}</p>
+			</div>
+			<div class="poster-body">
+				<h3 class="poster-title">{{ item.title }}</h3>
 			</div>
 		</a>
 	</div>
@@ -131,8 +133,8 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 		}
 
 		.poster-info {
-			padding-top: 3.2rem;
-			background: linear-gradient(transparent 0%, rgb(0 0 0 / 82%) 42%, rgb(0 0 0 / 94%) 100%);
+			opacity: 1;
+			transform: translateY(0);
 		}
 
 		.poster-description {
@@ -160,12 +162,21 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	flex-direction: column;
 	justify-content: flex-end;
 	position: absolute;
+	opacity: 0;
 	inset: auto 0 0;
-	min-height: 42%;
-	padding: 2.6rem 0.7rem 0.7rem;
-	background: linear-gradient(transparent 0%, rgb(0 0 0 / 76%) 65%, rgb(0 0 0 / 90%) 100%);
+	min-height: 52%;
+	padding: 3.5rem 0.7rem 0.7rem;
+	background: linear-gradient(transparent 0%, rgb(0 0 0 / 86%) 58%, rgb(0 0 0 / 96%) 100%);
 	color: white;
-	transition: padding-top 0.25s ease, background 0.25s ease;
+	transform: translateY(12%);
+	transition: opacity 0.25s ease, transform 0.3s ease;
+}
+
+.poster-body {
+	display: flex;
+	align-items: center;
+	min-height: 2.5rem;
+	padding: 0.55rem 0.7rem 0.6rem;
 }
 
 .poster-title {
@@ -177,6 +188,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	line-height: 1.35;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+	color: var(--c-text);
 }
 
 .poster-description {
@@ -248,6 +260,11 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	.poster-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6em;
+	}
+
+	.poster-info {
+		opacity: 1;
+		transform: translateY(0);
 	}
 
 	.poster-description {
