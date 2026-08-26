@@ -26,20 +26,6 @@ interface TreasureCategory {
 }
 
 const categories = treasureData.categories as TreasureCategory[]
-
-const tabs = computed(() => [
-	{ name: '全部', icon: '' },
-	...categories.map(c => ({ name: c.name, icon: c.icon })),
-])
-
-const activeCategory = ref('全部')
-
-const filteredItems = computed(() => {
-	if (activeCategory.value === '全部') {
-		return categories.flatMap(c => c.items)
-	}
-	return categories.find(c => c.name === activeCategory.value)?.items ?? []
-})
 </script>
 
 <template>
@@ -57,54 +43,54 @@ const filteredItems = computed(() => {
 		</p>
 	</header>
 
-	<nav class="treasure-tabs">
-		<button
-			v-for="tab in tabs"
-			:key="tab.name"
-			class="treasure-tab"
-			:class="{ active: activeCategory === tab.name }"
-			@click="activeCategory = tab.name"
-		>
-			<Icon v-if="tab.icon" :name="tab.icon" />
-			<span>{{ tab.name }}</span>
-		</button>
-	</nav>
-
-	<TransitionGroup
-		v-if="filteredItems.length"
-		tag="div"
-		class="poster-grid"
-		name="float-in"
-	>
-		<a
-			v-for="item, index in filteredItems"
-			:key="item.title + item.link"
-			class="poster-card"
-			:href="item.link"
-			target="_blank"
-			rel="noopener"
-			:style="getFixedDelay(index * 0.03)"
-		>
-			<NuxtImg
-				:src="item.cover"
-				:alt="item.title"
-				loading="lazy"
-				class="poster-img"
-			/>
-			<div class="poster-overlay">
-				<span v-if="item.description" class="poster-desc">{{ item.description }}</span>
-				<span class="poster-title">{{ item.title }}</span>
-				<div v-if="item.rating" class="poster-rating">
-					<Icon
-						v-for="i in 5"
-						:key="i"
-						name="ph:star-fill"
-						:class="{ on: i <= item.rating }"
-					/>
+	<div v-if="categories.length" class="treasure-sections">
+		<section v-for="category in categories" :key="category.name" class="treasure-section">
+			<header class="category-heading">
+				<div class="category-label">
+					<Icon :name="category.icon" />
+					<h2>{{ category.name }}</h2>
 				</div>
+				<span class="category-count">{{ category.items.length }} 件</span>
+			</header>
+
+			<div class="poster-grid">
+				<a
+					v-for="item, index in category.items"
+					:key="item.title + item.link"
+					class="poster-card"
+					:href="item.link"
+					target="_blank"
+					rel="noopener"
+					:title="`在外部网站查看：${item.title}`"
+					:style="getFixedDelay(index * 0.03)"
+				>
+					<div class="poster-media">
+						<NuxtImg
+							:src="item.cover"
+							:alt="item.title"
+							loading="lazy"
+							class="poster-img"
+						/>
+						<span class="type-pill"><Icon :name="category.icon" />{{ category.name }}</span>
+						<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
+					</div>
+					<div class="poster-body">
+						<h3>{{ item.title }}</h3>
+						<p v-if="item.description" class="poster-description">{{ item.description }}</p>
+						<div v-if="item.rating" class="poster-rating" :aria-label="`${item.rating} 星`">
+							<Icon
+								v-for="i in 5"
+								:key="i"
+								name="ph:star-fill"
+								:class="{ on: i <= item.rating }"
+							/>
+							<span>{{ item.rating }}</span>
+						</div>
+					</div>
+				</a>
 			</div>
-		</a>
-	</TransitionGroup>
+		</section>
+	</div>
 
 	<ZError
 		v-else
@@ -135,142 +121,183 @@ const filteredItems = computed(() => {
 	color: var(--c-text-3);
 }
 
-// 筛选 tab
-.treasure-tabs {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5em;
-	margin-bottom: 1.5em;
+.treasure-sections {
+	display: grid;
+	gap: 2rem;
 }
 
-.treasure-tab {
+.treasure-section {
+	min-width: 0;
+}
+
+.category-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+	padding-bottom: 0.45rem;
+	border-bottom: 1px solid var(--c-border);
+}
+
+.category-label {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.35em;
-	padding: 0.35em 0.9em;
-	border: 1px solid var(--c-border);
-	border-radius: 1em;
-	background-color: transparent;
-	font-size: 0.9em;
-	color: var(--c-text-2);
-	transition: all 0.2s;
-	cursor: pointer;
+	gap: 0.45rem;
+	color: var(--c-primary);
 
-	&:hover {
-		border-color: var(--c-primary);
-		color: var(--c-primary);
-	}
-
-	&.active {
-		border-color: var(--c-primary);
-		background-color: var(--c-primary-soft);
-		font-weight: 600;
-		color: var(--c-primary);
+	> .iconify {
+		font-size: 1.15rem;
 	}
 }
 
-// 海报墙
+.category-label h2 {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--c-text);
+}
+
+.category-count {
+	font-size: 0.75rem;
+	color: var(--c-text-3);
+}
+
 .poster-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
 	gap: 0.9em;
 }
 
 .poster-card {
-	position: relative;
 	overflow: hidden;
-	border-radius: 0.75em;
+	border: 1px solid var(--c-border);
+	border-radius: 0.55em;
 	box-shadow: var(--box-shadow-2);
-	transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+	background: var(--c-bg-1);
+	transition: transform 0.2s ease, border-color 0.2s, box-shadow 0.2s;
 	animation: float-in 0.2s var(--delay) backwards;
 
 	&:hover {
+		border-color: var(--c-primary);
 		box-shadow: var(--box-shadow-3);
-		transform: translateY(-4px);
+		transform: translateY(-3px);
 
 		.poster-img {
-			transform: scale(1.05);
+			transform: scale(1.04);
 		}
 
-		.poster-desc {
+		.poster-open {
 			opacity: 1;
-			max-height: 3em;
+			transform: translate(0, 0);
+		}
+
+		.poster-description {
+			color: var(--c-text);
 		}
 	}
+}
+
+.poster-media {
+	position: relative;
+	overflow: hidden;
 }
 
 .poster-img {
 	display: block;
 	width: 100%;
-	aspect-ratio: 2 / 3;
+	aspect-ratio: 4 / 5;
 	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	object-fit: cover;
 }
 
-.poster-overlay {
-	display: flex;
-	flex-direction: column;
-	gap: 0.2em;
+.type-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
 	position: absolute;
-	inset-inline: 0;
-	bottom: 0;
-	padding: 2.5em 0.6em 0.5em;
-	background: linear-gradient(transparent, rgb(0 0 0 / 88%));
+	top: 0.5rem;
+	left: 0.5rem;
+	padding: 0.22rem 0.45rem;
+	border-radius: 0.3rem;
+	background: rgb(0 0 0 / 65%);
+	font-size: 0.68rem;
 	color: white;
 }
 
-.poster-desc {
+.poster-open {
+	display: grid;
+	place-items: center;
+	position: absolute;
+	opacity: 0;
+	top: 0.5rem;
+	right: 0.5rem;
+	width: 1.65rem;
+	height: 1.65rem;
+	border-radius: 50%;
+	background: var(--c-primary);
+	color: var(--c-bg);
+	transform: translate(0.25rem, -0.25rem);
+	transition: opacity 0.2s, transform 0.2s;
+}
+
+.poster-body {
+	display: grid;
+	gap: 0.35rem;
+	padding: 0.65rem 0.7rem 0.7rem;
+}
+
+.poster-body h3 {
 	display: -webkit-box;
 	overflow: hidden;
-	opacity: 0;
-	max-height: 0;
-	font-size: 0.8em;
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 650;
 	-webkit-line-clamp: 2;
 	line-clamp: 2;
 	line-height: 1.35;
-	color: rgb(255 255 255 / 85%);
-	transition: max-height 0.25s ease, opacity 0.2s;
+	color: var(--c-text);
 	-webkit-box-orient: vertical;
 }
 
-.poster-title {
+.poster-description {
 	display: -webkit-box;
 	overflow: hidden;
-	font-size: 0.95em;
-	font-weight: 600;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
-	line-height: 1.3;
+	margin: 0;
+	font-size: 0.76rem;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
+	line-height: 1.45;
+	color: var(--c-text-2);
+	transition: color 0.2s;
 	-webkit-box-orient: vertical;
 }
 
 .poster-rating {
 	display: flex;
+	align-items: center;
 	gap: 0.15em;
-	margin-top: 0.15em;
+	margin-top: 0.1em;
 
 	> .iconify {
-		font-size: 0.9em;
-		color: rgb(255 255 255 / 35%);
+		font-size: 0.78rem;
+		color: var(--c-border-strong);
 
 		&.on {
 			color: #F5C518;
 		}
 	}
+
+	span {
+		margin-inline-start: 0.25rem;
+		font-size: 0.72rem;
+		color: var(--c-text-3);
+	}
 }
 
 @media (max-width: $breakpoint-mobile) {
 	.poster-grid {
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6em;
-	}
-
-	// 移动端无 hover：描述常驻显示一行
-	.poster-desc {
-		opacity: 1;
-		max-height: 1.5em;
-		-webkit-line-clamp: 1;
-		line-clamp: 1;
 	}
 }
 </style>
