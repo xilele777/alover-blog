@@ -2,44 +2,29 @@ categories:
   - name: 电影
     icon: ph:film-strip-bold
     items:
-      - title: 星际穿越
-        cover: /images/treasure/interstellar.webp
-        link: https://movie.douban.com/subject/1889243/
-        description: 诺兰的时空史诗
-        rating: 5
       - title: 生息之地
         cover: /images/treasure/p2928971933.webp
         link: https://movie.douban.com/subject/34842493/
         description: 河南人的时代散文诗
         rating: 5
-      - title: 千与千寻
-        cover: /images/treasure/p2557573348.webp
-        link: https://movie.douban.com/subject/1291561/
-        description: 宫崎骏的温柔与勇敢
-        rating: 5
-      - title: 肖申克的救赎
-        cover: /images/treasure/shawshank.jpg
-        link: https://movie.douban.com/subject/1292052/
-        description: 希望是个好东西
-        rating: 5
+      
   - name: 书籍
     icon: ph:book-bold
     items:
-      - title: 百年孤独
-        cover: /images/treasure/solitude.jpg
-        link: https://book.douban.com/subject/1773695/
-        description: 魔幻现实主义的巅峰
-        rating: 5
-      - title: 三体
-        cover: /images/treasure/three-body.jpg
-        link: https://book.douban.com/subject/2567698/
-        description: 宇宙级的震撼
+      - title: 你当像鸟飞往你的山
+        cover: /images/treasure/s33492346.jpg
+        link: https://book.douban.com/subject/33440205/
+        rating: 4.5
+      - title: 足利女童连续失踪事件
+        cover: /images/treasure/s34249411.jpg
+        link: https://book.douban.com/subject/35776315/
+        description: 报道工作亦是如此。声音再弱，也要倾听，声音再强，也敢质疑。
         rating: 5
   - name: 音乐
     icon: ph:music-note-bold
     items:
-      - title: 夜曲
-        cover: /images/treasure/1018309.jpg
-        link: https://music.163.com/
-        description: 周杰伦
+      - title: 拉赫玛尼诺夫第二交响曲三乐章
+        cover: /images/treasure/109951165868088770.jpg
+        link: https://163cn.tv/bdUEbeEI
+        description: 拉赫的悲伤是克制隐忍的，像地下的岩浆。他的热情和浪漫，却是肆意汪洋的，像海上喷薄而出的朝阳……
         rating: 5
