@@ -17,6 +17,9 @@ logs
 .DS_Store
 .fleet
 .idea
+.claude
+.playwright-mcp
+sidebar-*.png
 
 # Local env files
 .env

@@ -92,10 +92,13 @@ export default defineNuxtConfig({
 				return acc
 			}, {}),
 		'/admin': { prerender: true },
+		'/api/github/repos': { prerender: true, headers: { 'Content-Type': 'application/json' } },
+		'/api/github/stats': { headers: { 'Content-Type': 'application/json' } },
 		'/api/stats': { prerender: true, headers: { 'Content-Type': 'application/json' } },
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
 		'/zhilu.opml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
+		'/weekly.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 	},
 
 	runtimeConfig: {
@@ -225,6 +228,7 @@ ${packageJson.homepage}
 	linkChecker: {
 		// @keep-sorted
 		skipInspections: [
+			'absolute-site-urls',
 			'no-baseless',
 			'no-non-ascii-chars',
 			'no-uppercase-chars',

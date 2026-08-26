@@ -1,0 +1,19 @@
+# GitHub 配置
+github:
+  username: xilele777
+  # 白名单：只展示这些仓库
+  include:
+    - snotes
+    - Leetcode-Mastery-Scheduler
+    - gitdeck
+    - connect
+    - AI-Knowledge-Platform
+    - LabelHub-React
+    - WeChat-AI
+    - MiniTimer
+    - duo-translator
+    - SleepTracker
+    - transfergit
+    - playsouthwales
+    - score-hub
+    - web-clone
