@@ -1,0 +1,13 @@
+groups:
+  - name: 日常
+    items:
+      - src: /images/photos/daily/001.jpg
+        title: 午后阳光
+        date: 2026-07-15
+        location: 上海
+  - name: 旅行
+    items:
+      - src: /images/photos/travel/kyoto.jpg
+        title: 京都小路
+        date: 2026-05-20
+        location: 京都
