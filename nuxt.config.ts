@@ -93,12 +93,12 @@ export default defineNuxtConfig({
 			}, {}),
 		'/admin': { prerender: true },
 		'/api/github/repos': { prerender: true, headers: { 'Content-Type': 'application/json' } },
-		'/api/github/stats': { headers: { 'Content-Type': 'application/json' } },
+		'/api/github/stats': { prerender: Boolean(env.GITHUB_TOKEN), headers: { 'Content-Type': 'application/json' } },
 		'/api/stats': { prerender: true, headers: { 'Content-Type': 'application/json' } },
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
-		'/zhilu.opml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/weekly.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
+		'/zhilu.opml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 	},
 
 	runtimeConfig: {

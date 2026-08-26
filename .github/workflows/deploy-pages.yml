@@ -37,6 +37,10 @@ jobs:
         run: pnpm i
 
       - name: Generate static site
+        env:
+          # GitHub Pages is static, so fetch the private-rate-limited stats while building.
+          # The ephemeral Actions token is never included in the generated files.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm generate
 
       - name: Upload artifact
