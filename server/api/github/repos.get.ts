@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 interface GitHubRepo {
 	name: string
 	description: string | null
@@ -7,6 +9,9 @@ interface GitHubRepo {
 	language: string | null
 	topics: string[]
 	archived: boolean
+	pushed_at: string
+	fork: boolean
+	private: boolean
 }
 
 export default cachedEventHandler(

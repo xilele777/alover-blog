@@ -93,6 +93,7 @@ export default defineNuxtConfig({
 			}, {}),
 		'/admin': { prerender: true },
 		'/api/github/repos': { prerender: true, headers: { 'Content-Type': 'application/json' } },
+		'/api/github/stats': { prerender: true, headers: { 'Content-Type': 'application/json' } },
 		'/api/stats': { prerender: true, headers: { 'Content-Type': 'application/json' } },
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
