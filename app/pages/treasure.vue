@@ -26,6 +26,12 @@ interface TreasureCategory {
 }
 
 const categories = treasureData.categories as TreasureCategory[]
+
+const items = computed(() => categories.flatMap(category => category.items.map(item => ({
+	...item,
+	categoryName: category.name,
+	categoryIcon: category.icon,
+}))))
 </script>
 
 <template>
@@ -41,55 +47,44 @@ const categories = treasureData.categories as TreasureCategory[]
 		<p class="treasure-subtitle">
 			我珍藏的那些好东西
 		</p>
+		<span class="treasure-count">共 {{ items.length }} 件收藏</span>
 	</header>
 
-	<div v-if="categories.length" class="treasure-sections">
-		<section v-for="category in categories" :key="category.name" class="treasure-section">
-			<header class="category-heading">
-				<div class="category-label">
-					<Icon :name="category.icon" />
-					<h2>{{ category.name }}</h2>
-				</div>
-				<span class="category-count">{{ category.items.length }} 件</span>
-			</header>
-
-			<div class="poster-grid">
-				<a
-					v-for="item, index in category.items"
-					:key="item.title + item.link"
-					class="poster-card"
-					:href="item.link"
-					target="_blank"
-					rel="noopener"
-					:title="`在外部网站查看：${item.title}`"
-					:style="getFixedDelay(index * 0.03)"
-				>
-					<div class="poster-media">
-						<NuxtImg
-							:src="item.cover"
-							:alt="item.title"
-							loading="lazy"
-							class="poster-img"
-						/>
-						<span class="type-pill"><Icon :name="category.icon" />{{ category.name }}</span>
-						<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
-					</div>
-					<div class="poster-body">
-						<h3>{{ item.title }}</h3>
-						<p v-if="item.description" class="poster-description">{{ item.description }}</p>
-						<div v-if="item.rating" class="poster-rating" :aria-label="`${item.rating} 星`">
-							<Icon
-								v-for="i in 5"
-								:key="i"
-								name="ph:star-fill"
-								:class="{ on: i <= item.rating }"
-							/>
-							<span>{{ item.rating }}</span>
-						</div>
-					</div>
-				</a>
+	<div v-if="items.length" class="poster-grid">
+		<a
+			v-for="item, index in items"
+			:key="item.title + item.link"
+			class="poster-card"
+			:href="item.link"
+			target="_blank"
+			rel="noopener"
+			:title="`在外部网站查看：${item.title}`"
+			:style="getFixedDelay(index * 0.03)"
+		>
+			<div class="poster-media">
+				<NuxtImg
+					:src="item.cover"
+					:alt="item.title"
+					loading="lazy"
+					class="poster-img"
+				/>
+				<span class="type-pill"><Icon :name="item.categoryIcon" />{{ item.categoryName }}</span>
+				<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
 			</div>
-		</section>
+			<div class="poster-body">
+				<h3>{{ item.title }}</h3>
+				<p v-if="item.description" class="poster-description">{{ item.description }}</p>
+				<div v-if="item.rating" class="poster-rating" :aria-label="`${item.rating} 星`">
+					<Icon
+						v-for="i in 5"
+						:key="i"
+						name="ph:star-fill"
+						:class="{ on: i <= item.rating }"
+					/>
+					<span>{{ item.rating }}</span>
+				</div>
+			</div>
+		</a>
 	</div>
 
 	<ZError
@@ -106,6 +101,7 @@ const categories = treasureData.categories as TreasureCategory[]
 }
 
 .treasure-header {
+	position: relative;
 	margin-bottom: 1.5em;
 }
 
@@ -121,44 +117,13 @@ const categories = treasureData.categories as TreasureCategory[]
 	color: var(--c-text-3);
 }
 
-.treasure-sections {
-	display: grid;
-	gap: 2rem;
-}
-
-.treasure-section {
-	min-width: 0;
-}
-
-.category-heading {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-bottom: 0.75rem;
-	padding-bottom: 0.45rem;
-	border-bottom: 1px solid var(--c-border);
-}
-
-.category-label {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.45rem;
-	color: var(--c-primary);
-
-	> .iconify {
-		font-size: 1.15rem;
-	}
-}
-
-.category-label h2 {
-	margin: 0;
-	font-size: 1.05rem;
-	font-weight: 700;
-	color: var(--c-text);
-}
-
-.category-count {
-	font-size: 0.75rem;
+.treasure-count {
+	display: inline-block;
+	margin-top: 0.65rem;
+	padding: 0.22rem 0.55rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.35rem;
+	font-size: 0.72rem;
 	color: var(--c-text-3);
 }
 
