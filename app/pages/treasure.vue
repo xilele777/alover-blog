@@ -68,7 +68,6 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 				<span v-if="item.rating" class="rating-pill" :aria-label="`${item.rating} 星`">
 					<Icon name="ph:star-fill" />{{ item.rating }}
 				</span>
-				<span class="poster-open" aria-hidden="true"><Icon name="ph:arrow-up-right-bold" /></span>
 			</div>
 			<div class="poster-info">
 				<p v-if="item.description" class="poster-description">{{ item.description }}</p>
@@ -125,11 +124,6 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 
 		.poster-img {
 			transform: scale(1.04);
-		}
-
-		.poster-open {
-			opacity: 1;
-			transform: translate(0, 0);
 		}
 
 		.poster-info {
@@ -220,29 +214,13 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	color: white;
 }
 
-.poster-open {
-	display: grid;
-	place-items: center;
-	position: absolute;
-	opacity: 0;
-	top: 0.5rem;
-	right: 0.5rem;
-	width: 1.65rem;
-	height: 1.65rem;
-	border-radius: 50%;
-	background: var(--c-primary);
-	color: var(--c-bg);
-	transform: translate(0.25rem, -0.25rem);
-	transition: opacity 0.2s, transform 0.2s;
-}
-
 .rating-pill {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.2rem;
 	position: absolute;
+	top: 0.5rem;
 	right: 0.5rem;
-	bottom: 0.5rem;
 	padding: 0.22rem 0.42rem;
 	border-radius: 0.3rem;
 	background: rgb(0 0 0 / 68%);
