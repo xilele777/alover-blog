@@ -97,6 +97,7 @@ const items = computed(() => [
 .category-item {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	gap: 0.25rem;
 	min-width: 0;
 	color: var(--c-text-2);
@@ -114,7 +115,6 @@ const items = computed(() => [
 	}
 
 	strong {
-		margin-inline-start: auto;
 		font-size: 0.85rem;
 		font-weight: 600;
 		color: var(--c-text);

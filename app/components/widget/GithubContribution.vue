@@ -81,7 +81,7 @@ function levelClass(level: string) {
 	border-radius: 2px;
 	background-color: var(--c-bg-3);
 	transition: transform 0.15s, box-shadow 0.15s;
-	cursor: help;
+	cursor: default;
 
 	&:hover {
 		position: relative;

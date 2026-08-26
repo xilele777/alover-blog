@@ -16,10 +16,9 @@ interface GqlResponse {
 				}
 			}
 			repositories?: {
-				totalCount: number
 				nodes: {
 					stargazerCount: number
-					isPrivate: boolean
+					isFork: boolean
 					defaultBranchRef?: { target?: { history?: { totalCount: number } } }
 				}[]
 			}
@@ -45,14 +44,13 @@ const QUERY = /* GraphQL */ `
 				}
 			}
 			repositories(ownerAffiliations: OWNER, first: 100) {
-				totalCount
 				nodes {
 					stargazerCount
-					isPrivate
+					isFork
 					defaultBranchRef {
 						target {
 							... on Commit {
-								history {
+								history(author: { user: "xilele777" }) {
 									totalCount
 								}
 							}
@@ -91,10 +89,10 @@ export default cachedEventHandler(
 					weeks: calendar.weeks,
 				},
 				stats: {
-					repoTotal: repos.totalCount,
-					repoPrivate: repos.nodes.filter(r => r.isPrivate).length,
 					repoStarred: repos.nodes.filter(r => r.stargazerCount > 0).length,
-					commitTotal: repos.nodes.reduce((sum, r) => sum + (r.defaultBranchRef?.target?.history?.totalCount || 0), 0),
+					commitTotal: repos.nodes
+						.filter(r => !r.isFork)
+						.reduce((sum, r) => sum + (r.defaultBranchRef?.target?.history?.totalCount || 0), 0),
 				},
 			}
 		}
