@@ -17,14 +17,107 @@ const stats = computed(() => {
 })
 
 const items = computed(() => [
-	{ label: '收藏总数', value: `${stats.value.total} 件` },
-	...categories.map(c => ({ label: c.name, value: `${c.items.length} 件` })),
-	{ label: '平均评分', value: stats.value.avg ? `${stats.value.avg.toFixed(1)} 星` : '—' },
+	...categories.map(category => ({
+		...category,
+		count: category.items.length,
+	})),
 ])
 </script>
 
 <template>
 <BlogWidget card title="藏宝统计">
-	<ZDlGroup size="medium" :items="items" />
+	<div class="treasure-overview">
+		<div class="total">
+			<Icon name="ph:treasure-chest-bold" />
+			<div>
+				<span>已收藏</span>
+				<strong>{{ stats.total }}</strong>
+				<em>件</em>
+			</div>
+			<small>平均 {{ stats.avg ? `${stats.avg.toFixed(1)} 星` : '暂无评分' }}</small>
+		</div>
+		<div class="category-list">
+			<div v-for="item in items" :key="item.name" class="category-item">
+				<Icon :name="item.icon" />
+				<span>{{ item.name }}</span>
+				<strong>{{ item.count }}</strong>
+			</div>
+		</div>
+	</div>
 </BlogWidget>
 </template>
+
+<style lang="scss" scoped>
+.treasure-overview {
+	display: grid;
+	gap: 0.7rem;
+}
+
+.total {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 0.55rem;
+	padding-bottom: 0.65rem;
+	border-bottom: 1px solid var(--c-border);
+
+	> .iconify {
+		font-size: 1.45rem;
+		color: var(--c-warning);
+	}
+
+	span,
+	small {
+		font-size: 0.75rem;
+		color: var(--c-text-2);
+	}
+
+	strong {
+		margin-inline: 0.2rem;
+		font-family: var(--font-creative);
+		font-size: 1.5rem;
+		font-weight: 650;
+		line-height: 1;
+		color: var(--c-text);
+	}
+
+	em {
+		font-size: 0.75rem;
+		font-style: normal;
+		color: var(--c-text-2);
+	}
+}
+
+.category-list {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.35rem;
+}
+
+.category-item {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	min-width: 0;
+	color: var(--c-text-2);
+
+	> .iconify {
+		font-size: 1rem;
+		color: var(--c-primary);
+	}
+
+	span {
+		overflow: hidden;
+		font-size: 0.75rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	strong {
+		margin-inline-start: auto;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--c-text);
+	}
+}
+</style>
