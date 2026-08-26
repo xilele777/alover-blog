@@ -3,7 +3,7 @@ import treasureData from '~~/data/treasure.yml'
 
 const appConfig = useAppConfig()
 const layoutStore = useLayoutStore()
-layoutStore.setAside(['treasure-stats', 'blog-stats'])
+layoutStore.setAside(['blog-stats', 'treasure-stats'])
 
 useSeoMeta({
 	title: '藏宝阁',

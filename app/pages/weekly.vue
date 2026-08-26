@@ -7,7 +7,7 @@ useSeoMeta({
 })
 
 const layoutStore = useLayoutStore()
-layoutStore.setAside(['weekly-stats', 'blog-stats'])
+layoutStore.setAside(['blog-stats', 'weekly-stats'])
 
 const { data: listRaw } = await useAsyncData(
 	'weekly_posts',

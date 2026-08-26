@@ -109,11 +109,6 @@ const filteredRepos = computed(() => {
 
 	<!-- GitHub 仓库 -->
 	<section class="repos-section">
-		<h2 class="section-title">
-			<Icon name="simple-icons:github" />
-			<span>开源仓库</span>
-		</h2>
-
 		<!-- 骨架屏 -->
 		<div v-if="pending" class="repos-grid">
 			<div v-for="i in 6" :key="i" class="skeleton-card">
@@ -210,21 +205,6 @@ const filteredRepos = computed(() => {
 
 	&:hover {
 		background-color: var(--c-primary-soft);
-		color: var(--c-primary);
-	}
-}
-
-.section-title {
-	display: flex;
-	align-items: center;
-	gap: 0.4em;
-	margin-bottom: 1em;
-	font-size: 1.2em;
-	font-weight: 700;
-	color: var(--c-text-1);
-
-	> .iconify {
-		font-size: 1.2em;
 		color: var(--c-primary);
 	}
 }

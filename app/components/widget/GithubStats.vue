@@ -13,8 +13,7 @@ const statItems = computed(() => {
 	if (!s)
 		return []
 	return [
-		{ icon: 'ph:git-repository-bold', label: '仓库', value: s.repoTotal, tip: `含私有仓库 ${s.repoPrivate} 个` },
-		{ icon: 'ph:star-bold', label: '获星仓库', value: s.repoStarred },
+		{ icon: 'ph:star-bold', label: 'Star 仓库', value: s.repoStarred },
 		{ icon: 'ph:git-commit-bold', label: '提交', value: formatNumber(s.commitTotal) },
 	]
 })
@@ -35,7 +34,7 @@ const statItems = computed(() => {
 <style lang="scss" scoped>
 .github-stats {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	border-top: 1px solid var(--c-border);
 }
 
