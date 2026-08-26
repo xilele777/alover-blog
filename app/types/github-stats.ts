@@ -11,7 +11,9 @@ export interface GithubStatsResponse {
 		weeks: { contributionDays: GithubContributionDay[] }[]
 	}
 	stats: {
+		repoTotal: number
 		repoStarred: number
 		commitTotal: number
+		recentCommitDate: string | null
 	}
 }
