@@ -119,7 +119,6 @@ export default defineAppConfig({
 				{ icon: 'ph:newspaper-bold', text: '周报', url: '/weekly' },
 				{ icon: 'ph:treasure-chest-bold', text: '藏宝阁', url: '/treasure' },
 				{ icon: 'ph:rocket-launch-bold', text: '项目', url: '/projects' },
-				{ icon: 'ph:image-bold', text: '照片墙', url: '/photos' },
 				{ icon: 'ph:book-open-bold', text: 'Wiki', url: 'https://wiki.alover.me' },
 			],
 		},

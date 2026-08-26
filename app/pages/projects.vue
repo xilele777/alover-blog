@@ -3,7 +3,7 @@ import projectsData from '~~/data/projects.yml'
 
 const appConfig = useAppConfig()
 const layoutStore = useLayoutStore()
-layoutStore.setAside(['blog-stats'])
+layoutStore.setAside(['blog-stats', 'github-contribution', 'github-stats'])
 
 useSeoMeta({
 	title: '项目',
@@ -11,53 +11,50 @@ useSeoMeta({
 	description: `${appConfig.title}的开源项目与作品展示。`,
 })
 
-interface PinnedProject {
-	title: string
-	description: string
-	link: string
-	cover?: string
-	tags?: string[]
-	icon?: string
-}
-
 interface GitHubRepo {
 	name: string
 	description: string | null
 	html_url: string
-	stargazers_count: number
-	forks_count: number
 	language: string | null
 	topics: string[]
 	archived: boolean
+	pushed_at: string
+	fork: boolean
+	private: boolean
 }
 
-const pinned = projectsData.pinned as PinnedProject[]
 const githubConfig = projectsData.github
 
 // GitHub 语言颜色映射
 const languageColors: Record<string, string> = {
-	TypeScript: '#3178c6',
-	JavaScript: '#f1e05a',
-	Vue: '#41b883',
-	Python: '#3572A5',
-	Rust: '#dea584',
-	Go: '#00ADD8',
-	Java: '#b07219',
+	'TypeScript': '#3178c6',
+	'JavaScript': '#f1e05a',
+	'Vue': '#41b883',
+	'Python': '#3572A5',
+	'Rust': '#dea584',
+	'Go': '#00ADD8',
+	'Java': '#b07219',
 	'SCSS': '#c6538c',
-	CSS: '#563d7c',
-	HTML: '#e34c26',
-	Shell: '#89e051',
-	Dart: '#00B4AB',
-	Kotlin: '#A97BFF',
-	Swift: '#F05138',
-	Ruby: '#701516',
-	C: '#555555',
+	'CSS': '#563d7c',
+	'HTML': '#e34c26',
+	'Shell': '#89e051',
+	'Dart': '#00B4AB',
+	'Kotlin': '#A97BFF',
+	'Swift': '#F05138',
+	'Ruby': '#701516',
+	'C': '#555555',
 	'C++': '#f34b7d',
 }
 
 function getLanguageColor(lang: string | null): string {
-	if (!lang) return 'var(--c-text-3)'
+	if (!lang)
+		return 'var(--c-text-3)'
 	return languageColors[lang] || 'var(--c-text-3)'
+}
+
+function formatRepoUpdatedAt(pushedAt: string): string {
+	const rel = formatRelativeTime(pushedAt)
+	return rel === '—' ? rel : `${rel}更新`
 }
 
 const { data: repos, pending } = await useAsyncData<GitHubRepo[]>(
@@ -70,11 +67,16 @@ const { data: repos, pending } = await useAsyncData<GitHubRepo[]>(
 )
 
 const filteredRepos = computed(() => {
-	if (!repos.value) return []
+	if (!repos.value)
+		return []
 	return repos.value
 		.filter(repo => !repo.archived)
-		.filter(repo => !githubConfig.exclude.includes(repo.name))
-		.filter(repo => !pinned.some(p => p.link === repo.html_url))
+		.filter(repo => githubConfig.include.includes(repo.name))
+		.sort((a, b) => {
+			const ta = new Date(a.pushed_at).getTime() || 0
+			const tb = new Date(b.pushed_at).getTime() || 0
+			return tb - ta
+		})
 })
 </script>
 
@@ -105,43 +107,6 @@ const filteredRepos = computed(() => {
 		</UtilLink>
 	</header>
 
-	<!-- 置顶项目 -->
-	<section v-if="pinned.length" class="pinned-section">
-		<h2 class="section-title">
-			<Icon name="ph:pin-bold" />
-			<span>精选项目</span>
-		</h2>
-		<div class="pinned-grid">
-			<a
-				v-for="project, index in pinned"
-				:key="project.title"
-				class="pinned-card gradient-card"
-				:href="project.link"
-				target="_blank"
-				rel="noopener"
-				:style="getFixedDelay(index * 0.05)"
-			>
-				<div class="pinned-cover">
-					<NuxtImg
-						v-if="project.cover"
-						:src="project.cover"
-						:alt="project.title"
-						loading="lazy"
-						class="cover-img"
-					/>
-					<Icon v-else :name="project.icon || 'ph:cube-bold'" class="pinned-icon" />
-				</div>
-				<div class="pinned-info">
-					<span class="pinned-title">{{ project.title }}</span>
-					<span class="pinned-desc">{{ project.description }}</span>
-					<div v-if="project.tags" class="pinned-tags">
-						<span v-for="tag in project.tags" :key="tag" class="tag-badge">{{ tag }}</span>
-					</div>
-				</div>
-			</a>
-		</div>
-	</section>
-
 	<!-- GitHub 仓库 -->
 	<section class="repos-section">
 		<h2 class="section-title">
@@ -167,27 +132,33 @@ const filteredRepos = computed(() => {
 			<a
 				v-for="repo, index in filteredRepos"
 				:key="repo.name"
-				class="repo-card gradient-card"
+				class="repo-card"
 				:href="repo.html_url"
 				target="_blank"
 				rel="noopener"
-				:style="getFixedDelay(index * 0.04)"
+				:style="[getFixedDelay(index * 0.04), { '--lang-color': getLanguageColor(repo.language) }]"
 			>
 				<div class="repo-header">
 					<span class="lang-dot" :style="{ backgroundColor: getLanguageColor(repo.language) }" />
 					<span class="repo-name">{{ repo.name }}</span>
 				</div>
 				<p class="repo-desc">{{ repo.description || '暂无描述' }}</p>
-				<div class="repo-stats">
-					<span v-if="repo.stargazers_count" class="stat-item">
-						<Icon name="ph:star-bold" />
-						{{ repo.stargazers_count }}
+				<div class="repo-meta">
+					<span
+						class="repo-badge"
+						:class="{ 'badge-fork': repo.fork, 'badge-private': repo.private }"
+					>
+						<Icon :name="repo.fork ? 'ph:git-fork-bold' : repo.private ? 'ph:lock-bold' : 'ph:globe-bold'" />
+						{{ repo.fork ? 'Fork' : repo.private ? '私有' : '公开' }}
 					</span>
-					<span v-if="repo.forks_count" class="stat-item">
-						<Icon name="ph:git-fork-bold" />
-						{{ repo.forks_count }}
+					<span class="repo-lang">
+						<span class="lang-dot" :style="{ backgroundColor: getLanguageColor(repo.language) }" />
+						{{ repo.language || '未知' }}
 					</span>
-					<span v-if="repo.language" class="stat-item lang-name">{{ repo.language }}</span>
+					<span class="repo-time">
+						<Icon name="ph:clock-bold" />
+						{{ formatRepoUpdatedAt(repo.pushed_at) }}
+					</span>
 				</div>
 			</a>
 		</TransitionGroup>
@@ -258,95 +229,6 @@ const filteredRepos = computed(() => {
 	}
 }
 
-// 置顶项目
-.pinned-section {
-	margin-bottom: 2.5em;
-}
-
-.pinned-grid {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: 1em;
-}
-
-.pinned-card {
-	display: flex;
-	gap: 1em;
-	padding: 1em;
-	border-radius: 0.5em;
-	box-shadow: var(--box-shadow-2);
-	background-color: var(--ld-bg-card);
-	transition: transform 0.2s, box-shadow 0.2s;
-	animation: float-in 0.2s var(--delay) backwards;
-	overflow: hidden;
-
-	&:hover {
-		transform: translateY(-2px);
-		box-shadow: var(--box-shadow-3);
-	}
-}
-
-.pinned-cover {
-	flex-shrink: 0;
-	width: 64px;
-	height: 64px;
-	border-radius: 0.5em;
-	background-color: var(--c-bg-soft);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	overflow: hidden;
-
-	.cover-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.pinned-icon {
-		font-size: 2em;
-		color: var(--c-primary);
-	}
-}
-
-.pinned-info {
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0.3em;
-}
-
-.pinned-title {
-	font-weight: 700;
-	font-size: 1.05em;
-}
-
-.pinned-desc {
-	font-size: 0.9em;
-	color: var(--c-text-2);
-	display: -webkit-box;
-	overflow: hidden;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
-}
-
-.pinned-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.4em;
-	margin-top: 0.2em;
-}
-
-.tag-badge {
-	padding: 0.15em 0.55em;
-	border-radius: 1em;
-	background-color: var(--c-bg-soft);
-	font-size: 0.78em;
-	color: var(--c-text-2);
-}
-
 // GitHub 仓库
 .repos-section {
 	margin-bottom: 2em;
@@ -363,15 +245,15 @@ const filteredRepos = computed(() => {
 	flex-direction: column;
 	gap: 0.5em;
 	padding: 1em;
-	border-radius: 0.5em;
+	border-radius: 0.75em;
 	box-shadow: var(--box-shadow-2);
 	background-color: var(--ld-bg-card);
 	transition: transform 0.2s, box-shadow 0.2s;
 	animation: float-in 0.2s var(--delay) backwards;
 
 	&:hover {
-		transform: translateY(-2px);
-		box-shadow: var(--box-shadow-3);
+		box-shadow: inset 3px 0 0 var(--lang-color), var(--box-shadow-3);
+		transform: translateY(-3px);
 	}
 }
 
@@ -389,45 +271,71 @@ const filteredRepos = computed(() => {
 }
 
 .repo-name {
-	font-weight: 600;
-	font-size: 0.95em;
 	overflow: hidden;
+	font-size: 0.95em;
+	font-weight: 600;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
 .repo-desc {
-	margin: 0;
-	font-size: 0.85em;
-	color: var(--c-text-2);
 	display: -webkit-box;
 	overflow: hidden;
-	-webkit-box-orient: vertical;
+	margin: 0;
+	font-size: 0.85em;
 	-webkit-line-clamp: 2;
 	line-clamp: 2;
+	color: var(--c-text-2);
+	-webkit-box-orient: vertical;
 }
 
-.repo-stats {
+.repo-meta {
 	display: flex;
 	align-items: center;
-	gap: 1em;
+	gap: 0.6em;
 	margin-top: auto;
 	font-size: 0.8em;
 	color: var(--c-text-3);
 }
 
-.stat-item {
-	display: flex;
+.repo-badge {
+	display: inline-flex;
 	align-items: center;
-	gap: 0.3em;
+	gap: 0.25em;
+	padding: 0.15em 0.5em;
+	border-radius: 1em;
+	background-color: var(--c-bg-soft);
+	line-height: 1.4;
+	color: var(--c-text-2);
 
-	> .iconify {
-		font-size: 1em;
+	&.badge-fork {
+		background-color: var(--c-primary-soft);
+		color: var(--c-primary);
+	}
+
+	&.badge-private {
+		background-color: var(--c-warning-soft);
+		color: var(--c-warning);
 	}
 }
 
-.lang-name {
+.repo-lang {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3em;
+
+	.lang-dot {
+		width: 8px;
+		height: 8px;
+	}
+}
+
+.repo-time {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25em;
 	margin-inline-start: auto;
+	white-space: nowrap;
 }
 
 // 骨架屏
@@ -436,7 +344,7 @@ const filteredRepos = computed(() => {
 	flex-direction: column;
 	gap: 0.6em;
 	padding: 1em;
-	border-radius: 0.5em;
+	border-radius: 0.75em;
 	background-color: var(--c-bg-2);
 }
 
@@ -468,10 +376,6 @@ const filteredRepos = computed(() => {
 }
 
 @media (max-width: $breakpoint-mobile) {
-	.pinned-grid {
-		grid-template-columns: 1fr;
-	}
-
 	.repos-grid {
 		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 	}

@@ -3,12 +3,17 @@ categories:
     icon: ph:film-strip-bold
     items:
       - title: 星际穿越
-        cover: /images/treasure/interstellar.jpg
+        cover: /images/treasure/interstellar.webp
         link: https://movie.douban.com/subject/1889243/
         description: 诺兰的时空史诗
         rating: 5
+      - title: 生息之地
+        cover: /images/treasure/p2928971933.webp
+        link: https://movie.douban.com/subject/34842493/
+        description: 河南人的时代散文诗
+        rating: 5
       - title: 千与千寻
-        cover: /images/treasure/spirited-away.jpg
+        cover: /images/treasure/p2557573348.webp
         link: https://movie.douban.com/subject/1291561/
         description: 宫崎骏的温柔与勇敢
         rating: 5
@@ -34,7 +39,7 @@ categories:
     icon: ph:music-note-bold
     items:
       - title: 夜曲
-        cover: /images/treasure/nocturne.jpg
+        cover: /images/treasure/1018309.jpg
         link: https://music.163.com/
         description: 周杰伦
         rating: 5
