@@ -9,7 +9,10 @@ layoutStore.setAside(['blog-stats', 'blog-log'])
 
 const { data: listRaw } = await useAsyncData(
 	'memory_posts',
-	() => useArticleIndexOptions('posts/memory/%'),
+	() => queryCollection('content')
+		.where('stem', 'LIKE', 'posts/memory/%')
+		.where('draft', '=', false)
+		.all(),
 	{ default: () => [] },
 )
 
@@ -36,14 +39,15 @@ const memories = computed(() => {
 				<UtilDate :date="memory.date" format="date" />
 				<span v-if="memory.tags?.length" class="memory-tags">{{ memory.tags.map(tag => `#${tag}`).join(' ') }}</span>
 			</div>
-			<div class="memory-content">
-				<UtilLink :to="memory.path" class="memory-title-link">
+			<div class="memory-content article">
+				<UtilLink v-if="memory.title" :to="memory.path" class="memory-title-link">
 					<h2>{{ memory.title }}</h2>
 				</UtilLink>
 				<p v-if="memory.description" class="memory-description">{{ memory.description }}</p>
-				<NuxtImg v-if="memory.image" class="memory-image" :src="memory.image" :alt="memory.title" />
+				<NuxtImg v-if="memory.image" class="memory-image" :src="memory.image" :alt="memory.title || '网络记忆'" />
+				<ContentRenderer :value="memory" tag="div" />
 				<UtilLink :to="memory.path" class="memory-more">
-					阅读全文 <Icon name="ph:arrow-right-bold" />
+					查看原文 <Icon name="ph:arrow-right-bold" />
 				</UtilLink>
 			</div>
 		</article>
@@ -150,7 +154,7 @@ const memories = computed(() => {
 .memory-image {
 	display: block;
 	width: min(100%, 32rem);
-	max-height: 20rem;
+	max-height: 24rem;
 	margin-top: 0.8rem;
 	border-radius: 0.5rem;
 	object-fit: cover;

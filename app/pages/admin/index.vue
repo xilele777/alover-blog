@@ -432,7 +432,7 @@ watch(totalPostPages, (total) => {
 const markdown = computed(() => {
 	const lines = [
 		'---',
-		`title: ${yamlString(form.title || '未命名文章')}`,
+		`title: ${yamlString(form.title || (form.type === 'memory' ? '' : '未命名文章'))}`,
 		`date: ${yamlString(form.date)}`,
 		`updated: ${yamlString(form.updated || form.date)}`,
 	]
@@ -618,9 +618,9 @@ function validatePublish() {
 		return '请先在 GitHub 配置里填写 Branch。'
 	if (!settings.token.trim())
 		return '请先在 GitHub 配置里填写 Token。'
-	if (!form.title.trim())
+	if (form.type !== 'memory' && !form.title.trim())
 		return '请先填写文章标题。'
-	if (!form.body.trim())
+	if (!form.body.trim() && !(form.type === 'memory' && form.image.trim()))
 		return '请先填写正文。'
 	return ''
 }
@@ -2199,8 +2199,8 @@ onBeforeUnmount(() => {
 		<main class="editor-pane">
 			<div class="title-row">
 				<label class="title-field">
-					<span>标题</span>
-					<input v-model.trim="form.title" placeholder="未命名文章">
+					<span>{{ form.type === 'memory' ? '标题（可选）' : '标题' }}</span>
+					<input v-model.trim="form.title" :placeholder="form.type === 'memory' ? '可选，例如：某个网站又消失了' : '未命名文章'">
 				</label>
 				<div class="path-chip" :class="{ warning: pathChanged }">
 					<Icon name="ph:git-branch-bold" />
@@ -2210,7 +2210,7 @@ onBeforeUnmount(() => {
 
 			<label class="body-field">
 				<div class="field-heading">
-					<span>正文</span>
+					<span>{{ form.type === 'memory' ? '内容' : '正文' }}</span>
 					<div class="editor-actions">
 						<select v-model="bodyImageWidth" aria-label="插入图片尺寸">
 							<option v-for="option in bodyImageSizeOptions" :key="option.value" :value="option.value">
@@ -2234,7 +2234,7 @@ onBeforeUnmount(() => {
 						</button>
 					</div>
 				</div>
-				<textarea ref="bodyTextarea" v-model="form.body" spellcheck="false" />
+				<textarea ref="bodyTextarea" v-model="form.body" :placeholder="form.type === 'memory' ? '写几句话，或粘贴 Markdown 图片。内容会直接出现在网络记忆时间流里。' : ''" spellcheck="false" />
 			</label>
 		</main>
 
@@ -2833,7 +2833,7 @@ onBeforeUnmount(() => {
 						<small>默认值为 1，数值越大，被首页轮播抽中的概率越高。</small>
 					</label>
 					<label class="wide">
-						<span>封面图</span>
+						<span>{{ form.type === 'memory' ? '图片' : '封面图' }}</span>
 						<input v-model.trim="form.image" placeholder="/images/example.png 或 https://example.com/cover.jpg" @input="clearCoverPreviewUrl">
 					</label>
 					<div class="cover-actions wide">
