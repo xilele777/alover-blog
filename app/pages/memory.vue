@@ -53,7 +53,15 @@ const memories = computed(() => {
 				<p v-if="memory.description" class="memory-description">
 					{{ memory.description }}
 				</p>
-				<NuxtImg v-if="memory.image" class="memory-image" :src="memory.image" :alt="memory.title || '网络记忆'" />
+				<NuxtImg
+					v-if="memory.image"
+					class="memory-image"
+					:src="memory.image"
+					:alt="memory.title || '网络记忆'"
+					loading="lazy"
+					decoding="async"
+					sizes="(max-width: 640px) 100vw, 30rem"
+				/>
 				<ContentRenderer class="memory-body article" :value="memory" tag="div" />
 				<div v-if="memory.tags?.length" class="memory-tags">
 					{{ memory.tags.map(tag => `#${tag}`).join(' ') }}
@@ -172,11 +180,12 @@ const memories = computed(() => {
 
 .memory-image {
 	display: block;
-	width: min(100%, 32rem);
-	max-height: 24rem;
+	width: auto;
+	max-width: min(100%, 30rem);
+	max-height: 20rem;
 	margin-top: 0.6rem;
 	border-radius: 0.5rem;
-	object-fit: cover;
+	object-fit: contain;
 }
 
 .memory-body {
@@ -189,6 +198,14 @@ const memories = computed(() => {
 
 	:deep(> *) {
 		margin-block: 0.5rem;
+	}
+
+	:deep(img) {
+		display: block;
+		width: auto;
+		max-width: min(100%, 30rem);
+		max-height: 20rem;
+		object-fit: contain;
 	}
 }
 

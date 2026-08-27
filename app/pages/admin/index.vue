@@ -639,6 +639,12 @@ function defaultSlug() {
 	return `${value.getFullYear()}${pad(value.getMonth() + 1)}${pad(value.getDate())}`
 }
 
+function defaultMemorySlug() {
+	const value = new Date()
+	const milliseconds = value.getMilliseconds().toString().padStart(3, '0')
+	return `${value.getFullYear()}${pad(value.getMonth() + 1)}${pad(value.getDate())}-${pad(value.getHours())}${pad(value.getMinutes())}${pad(value.getSeconds())}-${milliseconds}`
+}
+
 function clearMessages() {
 	statusMessage.value = ''
 	errorMessage.value = ''
@@ -726,6 +732,7 @@ function resetForm() {
 function startMemoryDraft() {
 	resetForm()
 	form.type = 'memory'
+	form.slug = defaultMemorySlug()
 	form.category = categoryOptions.value.includes('网络记忆') ? '网络记忆' : form.category
 	form.body = ''
 	statusMessage.value = '已切换到网络记忆发布模式。'
