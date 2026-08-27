@@ -69,7 +69,7 @@ const appConfig = useAppConfig()
 
 @font-face {
 	font-family: AlimamaFangYuanTi;
-	src: url("/fonts/AlimamaFangYuanTi.woff2");
+	src: url("@/assets/fonts/AlimamaFangYuanTi.woff2") format("woff2");
 }
 
 .header-title {

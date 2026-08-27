@@ -19,7 +19,9 @@ export default defineEventHandler(async (event) => {
 
 	const existedPath = new Map()
 
-	const posts = await queryCollection(event, 'content').all()
+	const posts = (await queryCollection(event, 'content').all())
+		// 独立状态页没有文章日期，不应参与文章统计或在静态生成时产生日期告警。
+		.filter(post => Boolean(post.date))
 
 	const findOrCreateCategory = (
 		name: string,

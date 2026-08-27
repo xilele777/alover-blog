@@ -52,6 +52,8 @@ export default defineNuxtConfig({
 
 	compatibilityDate: '2024-08-03',
 
+	devtools: { enabled: false },
+
 	components: [
 		{ path: '~/components/partial', prefix: 'Z' },
 		'~/components',
@@ -114,9 +116,16 @@ export default defineNuxtConfig({
 	},
 
 	/** 在生产环境启用 sourcemap */
-	// sourcemap: true,
+	// 静态站点不发布调试映射，避免额外产物。
+	sourcemap: false,
 
 	vite: {
+		build: {
+			// 该站点将 Content 查询数据库按需拆分为独立资源；最大业务 chunk 约 733 kB，
+			// 小于此值的阈值可避免对已拆分资源重复输出构建告警。
+			chunkSizeWarningLimit: 750,
+			sourcemap: false,
+		},
 		css: {
 			preprocessorOptions: {
 				scss: {
@@ -248,6 +257,11 @@ ${packageJson.homepage}
 	robots: {
 		disableNuxtContentIntegration: true,
 		disallow: blogConfig.article.robotsNotIndex,
+	},
+
+	sitemap: {
+		// 全部 URL 在生成期已知，无需把 sitemap 查询 runtime 带入静态产物。
+		zeroRuntime: true,
 	},
 
 	site: {

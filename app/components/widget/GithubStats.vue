@@ -13,7 +13,7 @@ const statItems = computed(() => {
 	if (!s)
 		return []
 	return [
-		{ icon: 'ph:git-repository-bold', label: '仓库总数', value: s.repoTotal },
+		{ icon: 'ph:git-branch-bold', label: '仓库总数', value: s.repoTotal },
 		{ icon: 'ph:star-bold', label: 'star 仓库', value: s.repoStarred },
 		{ icon: 'ph:git-commit-bold', label: '提交', value: formatNumber(s.commitTotal), tip: '近一年本人提交次数' },
 		{ icon: 'ph:clock-counter-clockwise-bold', label: '最近提交', value: s.recentCommitDate ? formatRelativeTime(s.recentCommitDate) : '—', tip: s.recentCommitDate || undefined },

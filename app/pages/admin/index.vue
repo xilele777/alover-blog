@@ -83,6 +83,7 @@ const fileUnsafeRegex = /[\\/:*?"<>|]/g
 const fileWhitespaceRegex = /\s+/g
 const newlineRegex = /\n/g
 const lineBreakRegex = /\r?\n/
+const crlfRegex = /\r\n/g
 const encodedSlashRegex = /%2F/g
 const leadingSlashRegex = /^\/+/
 // Markdown files may be committed with either LF or CRLF line endings.
@@ -94,6 +95,8 @@ const bracketListRegex = /^\[(.*)\]$/
 const listTokenRegex = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^']*'|[^,\s]+/g
 const surroundingQuoteRegex = /^["']|["']$/g
 const contentPathRegex = /^content\/posts\/(\d{4})\/(.+)\.md$/
+const weeklyFileYearRegex = /^(\d{4})(?:-|$)/
+const treasureCategoriesRegex = /^\s*categories\s*:/m
 const fileExtensionRegex = /\.[^.]+$/
 const categoryConfigBlockRegex = /\/\/ BLOG_ADMIN_CATEGORIES_START[\s\S]*?\/\/ BLOG_ADMIN_CATEGORIES_END/
 const blogConfigDeclarationRegex = /^const\s+blogConfig\s*=/m
@@ -111,6 +114,7 @@ const logEntryRegex = /\{\s*label:\s*'((?:[^'\\]|\\.)*)',\s*value:\s*'((?:[^'\\]
 const logEscapeRegex = /[\\']/g
 const logUnescapeRegex = /\\(['\\])/g
 const logFilePath = 'app/components/widget/BlogLog.vue'
+const treasureFilePath = 'data/treasure.yml'
 const githubRequestTimeout = 30000
 const maxImageSize = 8 * 1024 * 1024
 const imageExtensionMap: Record<string, string> = {
@@ -198,6 +202,11 @@ const logDraft = reactive({ label: '', value: '' })
 const isLoadingLog = ref(false)
 const isSavingLog = ref(false)
 
+const treasureSource = ref('')
+const weeklyDocument = ref('')
+const weeklyFileName = ref('')
+const isLoadingTreasure = ref(false)
+
 const repoImages = ref<RepoImage[]>([])
 const isLoadingImages = ref(false)
 const imageSearch = ref('')
@@ -215,7 +224,7 @@ const posts = ref<GithubPost[]>([])
 const selectedPostPath = ref('')
 const selectedPostSha = ref('')
 const selectedPostOriginalPath = ref('')
-const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'log' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | null>(null)
+const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'log' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | 'treasure' | 'weekly' | null>(null)
 const pendingConfirmation = shallowRef<PendingConfirmation | null>(null)
 const postSearch = ref('')
 const postView = ref<'all' | 'drafts' | 'published'>('all')
@@ -380,6 +389,12 @@ const postListRange = computed(() => {
 	return `${start}-${end} / ${searchedPosts.value.length}`
 })
 
+const weeklyFilePath = computed(() => {
+	const name = sanitizeFileName(weeklyFileName.value.replace(mdExtensionRegex, ''))
+	const year = name.match(weeklyFileYearRegex)?.[1] || new Date().getFullYear().toString()
+	return `content/posts/weekly/${year}/${name || '未命名周报'}.md`
+})
+
 const canUseGithub = computed(() => hasGithubSettings())
 const stagedChangeCount = computed(() => stagedChanges.value.length)
 const stagedChangeLabel = computed(() => stagedChangeCount.value ? `提交全部（${stagedChangeCount.value}）` : '提交全部')
@@ -398,6 +413,8 @@ const dialogMeta = computed(() => ({
 	site: { icon: 'ph:gear-bold', title: '站点设置' },
 	staged: { icon: 'ph:tray-bold', title: '暂存区' },
 	tags: { icon: 'ph:tag-bold', title: '标签管理' },
+	treasure: { icon: 'ph:treasure-chest-bold', title: '藏宝阁发布' },
+	weekly: { icon: 'ph:newspaper-bold', title: '发布周报' },
 })[activeDialog.value || 'meta'])
 
 watch([postSearch, postView], () => {
@@ -912,6 +929,10 @@ function describeStagedChange(change: StagedChange) {
 		return { label: '删除', tone: 'danger' }
 	if (change.encoding === 'base64')
 		return { label: '新图片', tone: 'normal' }
+	if (change.path === treasureFilePath)
+		return { label: '藏宝阁', tone: 'normal' }
+	if (change.path.startsWith('content/posts/weekly/'))
+		return { label: '周报', tone: 'normal' }
 	if (change.path.endsWith('.md'))
 		return { label: '文章', tone: 'normal' }
 	return { label: '配置', tone: 'normal' }
@@ -1872,6 +1893,95 @@ async function saveLogConfig() {
 	}
 }
 
+async function fetchTextFile(path: string) {
+	const current = await githubRequest<GithubContent>(
+		`${repoPath.value}/contents/${encodePath(path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
+	)
+	return decodeBase64(current.content)
+}
+
+async function openTreasureDialog() {
+	openDialog('treasure')
+	clearMessages()
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再编辑藏宝阁。'
+		return
+	}
+	isLoadingTreasure.value = true
+	try {
+		treasureSource.value = getStagedContent(treasureFilePath) || await fetchTextFile(treasureFilePath)
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+	}
+	finally {
+		isLoadingTreasure.value = false
+	}
+}
+
+function stageTreasure() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再发布藏宝阁。'
+		return
+	}
+	if (!treasureSource.value.trim()) {
+		errorMessage.value = '藏宝阁内容不能为空。'
+		return
+	}
+	if (!treasureCategoriesRegex.test(treasureSource.value)) {
+		errorMessage.value = '藏宝阁 YAML 必须包含 categories 顶级字段。'
+		return
+	}
+	stageChange({ content: treasureSource.value.replace(crlfRegex, '\n'), path: treasureFilePath })
+	closeDialog()
+	statusMessage.value = '藏宝阁修改已暂存，点击“提交全部”后统一发布。'
+}
+
+function openWeeklyDialog() {
+	if (!weeklyFileName.value)
+		weeklyFileName.value = `${localDateTime().slice(0, 10)}-issue-`
+	openDialog('weekly')
+}
+
+function stageWeeklyDocument() {
+	stageChange({ content: weeklyDocument.value.replace(crlfRegex, '\n'), path: weeklyFilePath.value })
+	upsertPostListItem(weeklyFilePath.value)
+	cachePosts()
+	closeDialog()
+	statusMessage.value = '周报已暂存，点击“提交全部”后统一发布。'
+}
+
+function stageWeekly() {
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再发布周报。'
+		return
+	}
+	if (!weeklyFileName.value.trim()) {
+		errorMessage.value = '请先填写周报文件名。'
+		return
+	}
+	if (!weeklyDocument.value.trim()) {
+		errorMessage.value = '请粘贴完整的周报 Markdown 文档。'
+		return
+	}
+	if (!frontmatterRegex.test(weeklyDocument.value)) {
+		errorMessage.value = '周报文档必须包含完整的 YAML frontmatter。'
+		return
+	}
+	const existing = posts.value.some(post => post.path === weeklyFilePath.value)
+	if (existing && !getStagedContent(weeklyFilePath.value)) {
+		requestConfirmation({
+			action: stageWeeklyDocument,
+			confirmLabel: '覆盖并暂存',
+			detail: weeklyFilePath.value,
+			message: '同名周报已存在，继续会用当前完整文档覆盖它。',
+			title: '覆盖已有周报',
+		})
+		return
+	}
+	stageWeeklyDocument()
+}
+
 async function deleteSelectedPost() {
 	if (!isEditingExisting.value || !selectedPostOriginalPath.value || !selectedPostSha.value)
 		return
@@ -2004,9 +2114,6 @@ onBeforeUnmount(() => {
 			<UtilLink class="icon-button" to="/" title="返回博客">
 				<Icon name="ph:caret-left-bold" />
 			</UtilLink>
-			<div>
-				<h1>博客后台</h1>
-			</div>
 		</div>
 		<div class="topbar-actions">
 			<button class="secondary-button" type="button" @click="openDialog('github')">
@@ -2040,6 +2147,14 @@ onBeforeUnmount(() => {
 			<button class="secondary-button" type="button" @click="openLogDialog">
 				<Icon name="ph:clock-counter-clockwise-bold" />
 				<span>日志</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openTreasureDialog">
+				<Icon name="ph:treasure-chest-bold" />
+				<span>藏宝阁</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openWeeklyDialog">
+				<Icon name="ph:newspaper-bold" />
+				<span>周报</span>
 			</button>
 			<button class="secondary-button" type="button" @click="resetForm">
 				<Icon name="ph:file-plus-bold" />
@@ -2514,6 +2629,47 @@ onBeforeUnmount(() => {
 					</div>
 				</div>
 
+				<div v-else-if="activeDialog === 'treasure'" class="dialog-content publish-source-form">
+					<p class="manager-hint">
+						直接编辑 <code>data/treasure.yml</code>。封面图可先用图片库上传，再填入 <code>/images/...</code> 路径。
+					</p>
+					<textarea
+						v-model="treasureSource"
+						:disabled="isLoadingTreasure"
+						aria-label="藏宝阁 YAML"
+						placeholder="正在读取藏宝阁数据..."
+						spellcheck="false"
+					/>
+					<div class="manager-actions">
+						<button class="secondary-button" :disabled="!canUseGithub || isLoadingTreasure" type="button" @click="openTreasureDialog">
+							<Icon :name="isLoadingTreasure ? 'line-md:loading-twotone-loop' : 'ph:arrow-clockwise-bold'" />
+							<span>{{ isLoadingTreasure ? '读取中' : '重新读取' }}</span>
+						</button>
+						<button class="publish-button" :disabled="!canUseGithub || isLoadingTreasure" type="button" @click="stageTreasure">
+							<Icon name="ph:tray-arrow-down-bold" />
+							<span>暂存藏宝阁</span>
+						</button>
+					</div>
+				</div>
+
+				<div v-else-if="activeDialog === 'weekly'" class="dialog-content publish-source-form">
+					<label>
+						<span>文件名</span>
+						<input v-model.trim="weeklyFileName" placeholder="2026-08-27-issue-003">
+						<small>会保存为 <code>{{ weeklyFilePath }}</code></small>
+					</label>
+					<label>
+						<span>完整周报 Markdown</span>
+						<textarea v-model="weeklyDocument" aria-label="完整周报 Markdown" placeholder="粘贴包含 YAML frontmatter 的完整周报文档" spellcheck="false" />
+					</label>
+					<div class="manager-actions">
+						<button class="publish-button" :disabled="!canUseGithub" type="button" @click="stageWeekly">
+							<Icon name="ph:tray-arrow-down-bold" />
+							<span>暂存周报</span>
+						</button>
+					</div>
+				</div>
+
 				<div v-else-if="activeDialog === 'log'" class="dialog-content manager-content">
 					<div class="manager-list log-manager-list">
 						<div v-for="(entry, index) in logEntries" :key="index" class="manager-row log-row">
@@ -2747,7 +2903,7 @@ onBeforeUnmount(() => {
 
 .topbar {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: space-between;
 	gap: 1rem;
 	min-height: 4.5rem;
@@ -2763,13 +2919,6 @@ onBeforeUnmount(() => {
 	align-items: center;
 	gap: 0.75rem;
 	min-width: 0;
-}
-
-.brand {
-	h1 {
-		font-size: 1.2rem;
-		line-height: 1.1;
-	}
 }
 
 .icon-button,
@@ -2909,6 +3058,17 @@ button:disabled {
 
 .dialog-site {
 	width: min(30rem, 100%);
+}
+
+.topbar-actions {
+	flex: 1 1 auto;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.dialog-treasure,
+.dialog-weekly {
+	width: min(54rem, 100%);
 }
 
 .dialog-meta {
@@ -3382,6 +3542,26 @@ textarea {
 	align-self: center;
 	margin-inline-end: auto;
 	color: var(--c-text-3);
+}
+
+.publish-source-form {
+	grid-template-rows: auto minmax(20rem, 1fr) auto;
+
+	textarea {
+		min-height: 20rem;
+		font-family: var(--font-monospace);
+		font-size: 0.86rem;
+		line-height: 1.65;
+		resize: vertical;
+	}
+
+	label:has(textarea) {
+		min-height: 0;
+	}
+
+	label textarea {
+		height: 100%;
+	}
 }
 
 .category-identity {
@@ -3927,6 +4107,10 @@ textarea {
 	.post-pagination {
 		flex-direction: column;
 		align-items: stretch;
+	}
+
+	.topbar-actions {
+		width: 100%;
 	}
 
 	.workspace {
