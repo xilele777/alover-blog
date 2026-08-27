@@ -133,7 +133,6 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 
 		.poster-description {
 			opacity: 1;
-			max-height: 3em;
 		}
 	}
 }
@@ -186,18 +185,12 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 }
 
 .poster-description {
-	display: -webkit-box;
-	overflow: hidden;
 	opacity: 0;
-	max-height: 0;
 	margin: 0.25rem 0 0;
 	font-size: 0.76rem;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
 	line-height: 1.45;
 	color: rgb(255 255 255 / 82%);
-	transition: max-height 0.25s ease, opacity 0.2s ease;
-	-webkit-box-orient: vertical;
+	transition: opacity 0.2s ease;
 }
 
 .type-pill {
@@ -247,7 +240,6 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 
 	.poster-description {
 		opacity: 1;
-		max-height: 3em;
 	}
 }
 </style>
