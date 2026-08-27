@@ -100,6 +100,8 @@ export default defineNuxtConfig({
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
 		'/weekly.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
+		// 网络记忆只在动态墙展示，避免暴露单条内容的文章详情页。
+		'/memory/**': { redirect: { to: '/memory', statusCode: 308 } },
 		'/zhilu.opml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 	},
 
