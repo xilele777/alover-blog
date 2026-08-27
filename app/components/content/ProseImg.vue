@@ -15,6 +15,5 @@ defineProps<{
 	:height
 	loading="lazy"
 	decoding="async"
-	sizes="(max-width: 640px) 100vw, 30rem"
 />
 </template>

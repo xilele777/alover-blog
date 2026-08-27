@@ -60,7 +60,6 @@ const memories = computed(() => {
 					:alt="memory.title || '网络记忆'"
 					loading="lazy"
 					decoding="async"
-					sizes="(max-width: 640px) 100vw, 30rem"
 				/>
 				<ContentRenderer class="memory-body article" :value="memory" tag="div" />
 				<div v-if="memory.tags?.length" class="memory-tags">
