@@ -8,6 +8,7 @@ const { data: surrounds } = await useAsyncData(
 	() => queryCollectionItemSurroundings('content', route.path, { fields: ['date', 'title', 'type'] })
 		.order('date', 'ASC')
 		.where('stem', 'LIKE', `posts/%`)
+		.where('type', '!=', 'memory')
 		.where('draft', '=', false),
 )
 
