@@ -10,9 +10,11 @@ const layoutStore = useLayoutStore()
 layoutStore.setAside(['blog-stats', 'blog-tech'])
 
 const { data: listRaw } = await useAsyncData('index_posts', () => useArticleIndexOptions(), { default: () => [] })
-// 周报有独立的 /weekly 页面，不混入首页文章流
-const listWithoutWeekly = computed(() => listRaw.value.filter(item => !item.path?.startsWith(WEEKLY_PATH_PREFIX)))
-const listPublished = usePublishedArticles(listWithoutWeekly)
+// 周报和网络记忆都有独立栏目，不混入首页文章流
+const listWithoutSpecialColumns = computed(() => listRaw.value
+	.filter(item => !item.path?.startsWith(WEEKLY_PATH_PREFIX))
+	.filter(item => item.type !== 'memory'))
+const listPublished = usePublishedArticles(listWithoutSpecialColumns)
 const { listSorted, isAscending, sortOrder } = useArticleSort(listPublished, { bindDirectionQuery: 'asc', bindOrderQuery: 'sort' })
 const { category, categories, listCategorized } = useCategory(listSorted, { bindQuery: 'category' })
 const { page, totalPages, listPaged } = usePagination(listCategorized, { bindQuery: 'page' })

@@ -95,6 +95,7 @@ const bracketListRegex = /^\[(.*)\]$/
 const listTokenRegex = /"[^"\\]*(?:\\.[^"\\]*)*"|'[^']*'|[^,\s]+/g
 const surroundingQuoteRegex = /^["']|["']$/g
 const contentPathRegex = /^content\/posts\/(\d{4})\/(.+)\.md$/
+const memoryContentPathRegex = /^content\/posts\/memory\/(\d{4})\/(.+)\.md$/
 const weeklyFileYearRegex = /^(\d{4})(?:-|$)/
 const treasureCategoriesRegex = /^\s*categories\s*:/m
 const fileExtensionRegex = /\.[^.]+$/
@@ -375,6 +376,8 @@ const pagedPosts = computed(() => {
 const postPath = computed(() => {
 	const year = (form.date || localDateTime()).slice(0, 4)
 	const slug = sanitizeFileName(form.slug || form.title || defaultSlug())
+	if (form.type === 'memory')
+		return `content/posts/memory/${year}/${slug}.md`
 	return `content/posts/${year}/${slug}.md`
 })
 const previewPath = computed(() => postPath.value.replace(contentPrefixRegex, '').replace(mdExtensionRegex, ''))
@@ -720,6 +723,14 @@ function resetForm() {
 	})
 }
 
+function startMemoryDraft() {
+	resetForm()
+	form.type = 'memory'
+	form.category = categoryOptions.value.includes('网络记忆') ? '网络记忆' : form.category
+	form.body = ''
+	statusMessage.value = '已切换到网络记忆发布模式。'
+}
+
 function yamlString(value: string) {
 	return JSON.stringify(value)
 }
@@ -802,12 +813,15 @@ function parseMarkdownContent(value: string) {
 }
 
 function applyPostPath(path: string) {
-	const matched = path.match(contentPathRegex)
+	const memoryMatch = path.match(memoryContentPathRegex)
+	const matched = memoryMatch || path.match(contentPathRegex)
 	if (!matched)
 		return
 
 	form.date ||= `${matched[1]}-01-01 00:00`
 	form.slug = matched[2]
+	if (memoryMatch)
+		form.type = 'memory'
 }
 
 function fillFormFromMarkdown(value: string, path: string) {
@@ -933,6 +947,8 @@ function describeStagedChange(change: StagedChange) {
 		return { label: '藏宝阁', tone: 'normal' }
 	if (change.path.startsWith('content/posts/weekly/'))
 		return { label: '周报', tone: 'normal' }
+	if (change.path.startsWith('content/posts/memory/'))
+		return { label: '网络记忆', tone: 'normal' }
 	if (change.path.endsWith('.md'))
 		return { label: '文章', tone: 'normal' }
 	return { label: '配置', tone: 'normal' }
@@ -2156,6 +2172,10 @@ onBeforeUnmount(() => {
 				<Icon name="ph:newspaper-bold" />
 				<span>周报</span>
 			</button>
+			<button class="secondary-button" type="button" @click="startMemoryDraft">
+				<Icon name="ph:globe-hemisphere-west-bold" />
+				<span>网络记忆</span>
+			</button>
 			<button class="secondary-button" type="button" @click="resetForm">
 				<Icon name="ph:file-plus-bold" />
 				<span>新建</span>
@@ -2749,6 +2769,14 @@ onBeforeUnmount(() => {
 							</option>
 							<option value="__custom">
 								添加新分类...
+							</option>
+						</select>
+					</label>
+					<label>
+						<span>文章版式</span>
+						<select v-model="form.type">
+							<option v-for="type in Object.keys(blogConfig.article.types)" :key="type" :value="type">
+								{{ type === 'memory' ? '网络记忆' : type === 'weekly' ? '周报' : type === 'story' ? '故事' : '技术' }}
 							</option>
 						</select>
 					</label>

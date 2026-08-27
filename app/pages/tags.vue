@@ -20,7 +20,7 @@ layoutStore.setAside(['blog-stats'])
 const selectedTag = useRouteQuery<string | undefined>('tag', undefined)
 
 const { data: listRaw } = await useAsyncData('tag_posts', () => useArticleIndexOptions(), { default: () => [] })
-const listPublished = usePublishedArticles(listRaw)
+const listPublished = usePublishedArticles(useNonMemoryArticles(listRaw))
 const { listSorted } = useArticleSort(listPublished)
 
 const tagGroups = computed<TagGroup[]>(() => {

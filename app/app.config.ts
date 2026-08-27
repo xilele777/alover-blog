@@ -117,6 +117,7 @@ export default defineAppConfig({
 				{ icon: 'ph:tag-bold', text: '标签', url: '/tags' },
 				{ icon: 'ph:archive-bold', text: '归档', url: '/archive' },
 				{ icon: 'ph:newspaper-bold', text: '周报', url: '/weekly' },
+				{ icon: 'ph:globe-hemisphere-west-bold', text: '网络记忆', url: '/memory' },
 				{ icon: 'ph:treasure-chest-bold', text: '藏宝阁', url: '/treasure' },
 				{ icon: 'ph:rocket-launch-bold', text: '项目', url: '/projects' },
 				{ icon: 'ph:book-open-bold', text: 'Wiki', url: 'https://wiki.alover.me' },

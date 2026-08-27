@@ -19,6 +19,14 @@ export function usePublishedArticles(list: MaybeRefOrGetter<ArticleProps[]>) {
 	return computed(() => toValue(list).filter(item => item.draft !== true))
 }
 
+export function useMemoryArticles(list: MaybeRefOrGetter<ArticleProps[]>) {
+	return computed(() => toValue(list).filter(item => item.type === 'memory'))
+}
+
+export function useNonMemoryArticles(list: MaybeRefOrGetter<ArticleProps[]>) {
+	return computed(() => toValue(list).filter(item => item.type !== 'memory'))
+}
+
 interface UseCategoryOptions {
 	bindQuery?: string
 }

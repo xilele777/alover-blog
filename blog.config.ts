@@ -52,6 +52,10 @@ const managedCategories = {
 	"说明书": {
 		"icon": "ph:book-open-bold",
 		"color": "#06b6d4"
+	},
+	"网络记忆": {
+		"icon": "ph:globe-hemisphere-west-bold",
+		"color": "#ec4899"
 	}
 } satisfies Record<string, { icon: string, color?: string }>
 // BLOG_ADMIN_CATEGORIES_END
@@ -70,6 +74,7 @@ const blogConfig = {
 			tech: {},
 			story: {},
 			weekly: {},
+			memory: {},
 		},
 		/** 分类排序方式，键为排序字段，值为显示名称 */
 		order: {
