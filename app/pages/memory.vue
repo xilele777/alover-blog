@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const appConfig = useAppConfig()
+
 useSeoMeta({
 	title: '网络记忆',
 	description: '记录那些短暂出现、却值得留下的网络记忆与时代眼泪。',
@@ -26,29 +28,36 @@ const memories = computed(() => {
 <div class="memory-page proper-height">
 	<header class="memory-header">
 		<div>
-			<p class="memory-kicker"><Icon name="ph:globe-hemisphere-west-bold" /> 记忆存档</p>
+			<p class="memory-kicker">
+				<Icon name="ph:globe-hemisphere-west-bold" /> 记忆存档
+			</p>
 			<h1>网络记忆，时代眼泪</h1>
-			<p class="memory-subtitle">一些碎碎念、旧链接和图片。互联网变化很快，先替它们留个档。</p>
+			<p class="memory-subtitle">
+				一些碎碎念、旧链接和图片。互联网变化很快，先替它们留个档。
+			</p>
 		</div>
 		<span class="memory-count">{{ memories.length }} 条记录</span>
 	</header>
 
 	<TransitionGroup v-if="memories.length" tag="div" class="memory-feed" name="float-in">
 		<article v-for="(memory, index) in memories" :key="memory.path" class="memory-entry" :style="getFixedDelay(index * 0.05)">
-			<div class="memory-meta">
-				<UtilDate :date="memory.date" format="date" />
-				<span v-if="memory.tags?.length" class="memory-tags">{{ memory.tags.map(tag => `#${tag}`).join(' ') }}</span>
+			<div class="memory-avatar">
+				<NuxtImg :src="appConfig.author.avatar" :alt="appConfig.author.name" />
 			</div>
-			<div class="memory-content article">
-				<UtilLink v-if="memory.title" :to="memory.path" class="memory-title-link">
-					<h2>{{ memory.title }}</h2>
-				</UtilLink>
-				<p v-if="memory.description" class="memory-description">{{ memory.description }}</p>
+			<div class="memory-content">
+				<header class="memory-meta">
+					<strong>{{ appConfig.author.name }}</strong>
+					<UtilDate :date="memory.date" format="date" />
+					<span v-if="memory.title" class="memory-title">{{ memory.title }}</span>
+				</header>
+				<p v-if="memory.description" class="memory-description">
+					{{ memory.description }}
+				</p>
 				<NuxtImg v-if="memory.image" class="memory-image" :src="memory.image" :alt="memory.title || '网络记忆'" />
-				<ContentRenderer :value="memory" tag="div" />
-				<UtilLink :to="memory.path" class="memory-more">
-					查看原文 <Icon name="ph:arrow-right-bold" />
-				</UtilLink>
+				<ContentRenderer class="memory-body article" :value="memory" tag="div" />
+				<div v-if="memory.tags?.length" class="memory-tags">
+					{{ memory.tags.map(tag => `#${tag}`).join(' ') }}
+				</div>
 			</div>
 		</article>
 	</TransitionGroup>
@@ -100,53 +109,63 @@ const memories = computed(() => {
 
 .memory-feed {
 	display: grid;
-	gap: 1rem;
-	max-width: 54rem;
+	gap: 0.7rem;
+	max-width: 46rem;
 	margin: 1.5rem auto 0;
 }
 
 .memory-entry {
 	display: grid;
-	grid-template-columns: 7.5rem minmax(0, 1fr);
-	gap: 1.25rem;
-	padding: 1rem 0 1.2rem;
-	border-bottom: 1px dashed var(--c-border);
+	grid-template-columns: 2.5rem minmax(0, 1fr);
+	gap: 0.7rem;
+	padding: 0.8rem 0;
+	border-bottom: 1px solid var(--c-border);
 	animation: float-in 0.2s var(--delay) backwards;
 }
 
+.memory-avatar {
+	padding-top: 0.1rem;
+
+	img {
+		width: 2.35rem;
+		height: 2.35rem;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+}
+
 .memory-meta {
-	display: grid;
-	align-content: start;
-	gap: 0.45rem;
-	padding-top: 0.3rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.45rem 0.7rem;
 	font-size: 0.78rem;
 	color: var(--c-text-3);
+
+	strong {
+		font-size: 0.9rem;
+		color: var(--c-text);
+	}
 }
 
 .memory-tags {
-	line-height: 1.5;
+	margin-top: 0.5rem;
+	font-size: 0.78rem;
+	color: var(--c-primary);
 }
 
 .memory-content {
 	min-width: 0;
 }
 
-.memory-title-link {
-	color: var(--c-text);
-}
-
-.memory-title-link h2 {
-	font-size: 1.25rem;
-	font-weight: 700;
-	transition: color 0.2s;
-}
-
-.memory-title-link:hover h2 {
-	color: var(--c-primary);
+.memory-title {
+	width: 100%;
+	font-weight: 600;
+	color: var(--c-text-2);
 }
 
 .memory-description {
-	margin-top: 0.45rem;
+	margin-top: 0.55rem;
 	line-height: 1.7;
 	color: var(--c-text-2);
 }
@@ -155,18 +174,22 @@ const memories = computed(() => {
 	display: block;
 	width: min(100%, 32rem);
 	max-height: 24rem;
-	margin-top: 0.8rem;
+	margin-top: 0.6rem;
 	border-radius: 0.5rem;
 	object-fit: cover;
 }
 
-.memory-more {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.3em;
-	margin-top: 0.8rem;
-	font-size: 0.85rem;
-	color: var(--c-primary);
+.memory-body {
+	margin: 0.5rem 0 0;
+	line-height: 1.7;
+
+	:deep(p) {
+		margin: 0.35rem 0;
+	}
+
+	:deep(> *) {
+		margin-block: 0.5rem;
+	}
 }
 
 @media (max-width: $breakpoint-phone) {
@@ -177,14 +200,7 @@ const memories = computed(() => {
 	}
 
 	.memory-entry {
-		grid-template-columns: 1fr;
-		gap: 0.45rem;
-	}
-
-	.memory-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.6rem;
+		grid-template-columns: 2.2rem minmax(0, 1fr);
 	}
 }
 </style>

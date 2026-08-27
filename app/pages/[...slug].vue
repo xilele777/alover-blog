@@ -9,6 +9,7 @@ const { data: post } = await useAsyncData(
 	() => queryCollection('content')
 		.path(route.path)
 		.where('draft', '=', false)
+		.where('type', '!=', 'memory')
 		.first(),
 )
 
