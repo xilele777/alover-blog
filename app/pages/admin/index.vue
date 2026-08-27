@@ -2869,7 +2869,7 @@ onBeforeUnmount(() => {
 						</button>
 					</div>
 					<label class="wide">
-						<span>摘要</span>
+						<span>{{ form.type === 'memory' ? '描述（可选）' : '摘要' }}</span>
 						<textarea v-model="form.description" rows="4" />
 					</label>
 					<ZToggle v-model="form.draft" label="草稿" />

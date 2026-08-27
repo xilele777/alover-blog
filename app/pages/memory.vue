@@ -32,9 +32,6 @@ const memories = computed(() => {
 				<Icon name="ph:globe-hemisphere-west-bold" /> 记忆存档
 			</p>
 			<h1>网络记忆，时代眼泪</h1>
-			<p class="memory-subtitle">
-				一些碎碎念、旧链接和图片。互联网变化很快，先替它们留个档。
-			</p>
 		</div>
 		<span class="memory-count">{{ memories.length }} 条记录</span>
 	</header>
