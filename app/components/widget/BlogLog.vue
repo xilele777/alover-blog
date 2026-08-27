@@ -7,6 +7,7 @@ const blogLog = [
 	{ label: '2026-08-10', value: '新增Wiki站入口' },
 	{ label: '2026-08-21', value: '新增周报栏目' },
 	{ label: '2026-08-27', value: '新增藏宝阁与项目页面' },
+	{ label: '2026-08-27', value: '新增网络记忆栏目' },
 ]
 // BLOG_ADMIN_LOG_END
 </script>
