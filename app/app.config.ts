@@ -121,6 +121,7 @@ export default defineAppConfig({
 				{ icon: 'ph:treasure-chest-bold', text: '藏宝阁', url: '/treasure' },
 				{ icon: 'ph:rocket-launch-bold', text: '项目', url: '/projects' },
 				{ icon: 'ph:book-open-bold', text: 'Wiki', url: 'https://wiki.alover.me' },
+				{ icon: 'ph:chart-line-bold', text: '访问统计', url: 'https://cloud.umami.is/analytics/us/share/jW9qM012FsWV68UT?date=30day&page=1' },
 			],
 		},
 	] satisfies Nav,
