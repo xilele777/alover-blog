@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import type { TreasureDoc } from '~/utils/treasure-doc'
+import {
+	createTreasureCategory,
+	createTreasureItem,
+	moveArrayItem,
+	parseTreasureDoc,
+	serializeTreasureDoc,
+} from '~/utils/treasure-doc'
 import blogConfig from '../../../blog.config'
 
 interface GithubSettings {
@@ -204,6 +212,13 @@ const isLoadingLog = ref(false)
 const isSavingLog = ref(false)
 
 const treasureSource = ref('')
+const treasureDoc = ref<TreasureDoc>({ categories: [] })
+const treasureMode = ref<'form' | 'source'>('form')
+const treasureParseError = ref('')
+const treasureCoverInput = ref<HTMLInputElement>()
+const treasureCoverTarget = ref<{ categoryIndex: number, itemIndex: number } | null>(null)
+const uploadingTreasureCover = ref('')
+const treasureCoverPreviews = ref<Record<string, string>>({})
 const weeklyDocument = ref('')
 const weeklyFileName = ref('')
 const isLoadingTreasure = ref(false)
@@ -1152,8 +1167,25 @@ function validateImageFile(file: File) {
 	return ''
 }
 
-async function uploadImageFile(file: File) {
-	const uploadPath = getImageUploadPath(file)
+/**
+ * 藏宝阁封面的上传路径。
+ * 封面多是从豆瓣、网易云直接另存的图，原文件名本身就是稳定 ID，
+ * 因此优先保留原名，只有重名时才追加时间戳。
+ */
+function getTreasureUploadPath(file: File) {
+	const extension = getImageExtension(file)
+	const fileBaseName = sanitizeFileName(file.name.replace(fileExtensionRegex, '') || 'cover')
+	const basePath = `public/images/treasure/${fileBaseName}.${extension}`
+	const taken = new Set([
+		...repoImages.value.map(image => image.path),
+		...stagedChanges.value.filter(change => !change.delete).map(change => change.path),
+	])
+	if (!taken.has(basePath))
+		return basePath
+	return `public/images/treasure/${fileBaseName}-${Date.now()}.${extension}`
+}
+
+async function uploadImageFile(file: File, uploadPath = getImageUploadPath(file)) {
 	const bytes = new Uint8Array(await file.arrayBuffer())
 	stageChange({
 		content: bytesToBase64(bytes),
@@ -1923,6 +1955,45 @@ async function fetchTextFile(path: string) {
 	return decodeBase64(current.content)
 }
 
+/**
+ * 把源码解析进表单。
+ * 解析失败时保留源码并停留在源码模式，让用户能看到并修好原始内容。
+ */
+function applyTreasureSource() {
+	try {
+		treasureDoc.value = parseTreasureDoc(treasureSource.value)
+		treasureParseError.value = ''
+		return true
+	}
+	catch (error) {
+		treasureParseError.value = error instanceof Error ? error.message : String(error)
+		treasureMode.value = 'source'
+		return false
+	}
+}
+
+function syncTreasureSource() {
+	treasureSource.value = serializeTreasureDoc(treasureDoc.value)
+}
+
+function setTreasureMode(mode: 'form' | 'source') {
+	if (mode === treasureMode.value)
+		return
+	if (mode === 'source') {
+		syncTreasureSource()
+		treasureMode.value = 'source'
+		return
+	}
+	if (applyTreasureSource())
+		treasureMode.value = 'form'
+}
+
+function clearTreasureCoverPreviews() {
+	for (const previewUrl of Object.values(treasureCoverPreviews.value))
+		URL.revokeObjectURL(previewUrl)
+	treasureCoverPreviews.value = {}
+}
+
 async function openTreasureDialog() {
 	openDialog('treasure')
 	clearMessages()
@@ -1933,6 +2004,9 @@ async function openTreasureDialog() {
 	isLoadingTreasure.value = true
 	try {
 		treasureSource.value = getStagedContent(treasureFilePath) || await fetchTextFile(treasureFilePath)
+		clearTreasureCoverPreviews()
+		treasureMode.value = 'form'
+		applyTreasureSource()
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -1942,11 +2016,122 @@ async function openTreasureDialog() {
 	}
 }
 
+function addTreasureCategory() {
+	treasureDoc.value.categories.push(createTreasureCategory())
+}
+
+function removeTreasureCategory(categoryIndex: number) {
+	treasureDoc.value.categories.splice(categoryIndex, 1)
+}
+
+function moveTreasureCategory(categoryIndex: number, offset: number) {
+	moveArrayItem(treasureDoc.value.categories, categoryIndex, offset)
+}
+
+function addTreasureItem(categoryIndex: number) {
+	treasureDoc.value.categories[categoryIndex]?.items.push(createTreasureItem())
+}
+
+function removeTreasureItem(categoryIndex: number, itemIndex: number) {
+	treasureDoc.value.categories[categoryIndex]?.items.splice(itemIndex, 1)
+}
+
+function moveTreasureItem(categoryIndex: number, itemIndex: number, offset: number) {
+	const items = treasureDoc.value.categories[categoryIndex]?.items
+	if (items)
+		moveArrayItem(items, itemIndex, offset)
+}
+
+function treasureCoverKey(categoryIndex: number, itemIndex: number) {
+	return `${categoryIndex}:${itemIndex}`
+}
+
+function triggerTreasureCoverUpload(categoryIndex: number, itemIndex: number) {
+	clearMessages()
+	if (!canUseGithub.value) {
+		errorMessage.value = '请先完成 GitHub 配置，再上传封面图。'
+		return
+	}
+	treasureCoverTarget.value = { categoryIndex, itemIndex }
+	treasureCoverInput.value?.click()
+}
+
+async function uploadTreasureCover(event: Event) {
+	const input = event.target as HTMLInputElement
+	const file = input.files?.[0]
+	input.value = ''
+
+	const target = treasureCoverTarget.value
+	treasureCoverTarget.value = null
+	if (!file || !target)
+		return
+
+	const item = treasureDoc.value.categories[target.categoryIndex]?.items[target.itemIndex]
+	if (!item)
+		return
+
+	const invalidMessage = validateImageFile(file)
+	if (invalidMessage) {
+		errorMessage.value = invalidMessage
+		return
+	}
+
+	const key = treasureCoverKey(target.categoryIndex, target.itemIndex)
+	uploadingTreasureCover.value = key
+	clearMessages()
+	statusMessage.value = '正在上传封面图...'
+
+	try {
+		item.cover = await uploadImageFile(file, getTreasureUploadPath(file))
+		// 图片尚未提交到仓库，先用本地 objectURL 预览
+		const previousPreview = treasureCoverPreviews.value[key]
+		if (previousPreview)
+			URL.revokeObjectURL(previousPreview)
+		treasureCoverPreviews.value[key] = URL.createObjectURL(file)
+		statusMessage.value = `封面图已上传：${item.cover}`
+	}
+	catch (error) {
+		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
+	}
+	finally {
+		uploadingTreasureCover.value = ''
+	}
+}
+
+function validateTreasureDoc() {
+	for (const category of treasureDoc.value.categories) {
+		if (!category.name.trim())
+			return '每个分类都需要填写名称。'
+		if (!category.icon.trim())
+			return `分类「${category.name}」需要填写图标。`
+		for (const item of category.items) {
+			if (!item.title.trim())
+				return `分类「${category.name}」下存在没有标题的条目。`
+			if (!item.cover.trim())
+				return `条目「${item.title}」需要封面图。`
+			if (!item.link.trim())
+				return `条目「${item.title}」需要外链地址。`
+		}
+	}
+	return ''
+}
+
 function stageTreasure() {
 	if (!canUseGithub.value) {
 		errorMessage.value = '请先完成 GitHub 配置，再发布藏宝阁。'
 		return
 	}
+
+	if (treasureMode.value === 'form') {
+		const invalidMessage = validateTreasureDoc()
+		if (invalidMessage) {
+			errorMessage.value = invalidMessage
+			return
+		}
+		syncTreasureSource()
+	}
+
 	if (!treasureSource.value.trim()) {
 		errorMessage.value = '藏宝阁内容不能为空。'
 		return
@@ -2656,17 +2841,143 @@ onBeforeUnmount(() => {
 					</div>
 				</div>
 
-				<div v-else-if="activeDialog === 'treasure'" class="dialog-content publish-source-form">
-					<p class="manager-hint">
-						直接编辑 <code>data/treasure.yml</code>。封面图可先用图片库上传，再填入 <code>/images/...</code> 路径。
+				<div v-else-if="activeDialog === 'treasure'" class="dialog-content treasure-form">
+					<div class="treasure-modes">
+						<button :class="{ active: treasureMode === 'form' }" type="button" @click="setTreasureMode('form')">
+							<Icon name="ph:list-bullets-bold" />
+							<span>表单</span>
+						</button>
+						<button :class="{ active: treasureMode === 'source' }" type="button" @click="setTreasureMode('source')">
+							<Icon name="ph:code-bold" />
+							<span>源码</span>
+						</button>
+					</div>
+					<p v-if="treasureParseError" class="treasure-error">
+						YAML 解析失败：{{ treasureParseError }}
 					</p>
+					<p class="manager-hint">
+						编辑 <code>data/treasure.yml</code>。封面图直接在条目里上传，会和内容一起进入暂存区，点击「提交全部」一次发布。
+					</p>
+
+					<template v-if="treasureMode === 'form'">
+						<section
+							v-for="(category, categoryIndex) in treasureDoc.categories"
+							:key="categoryIndex"
+							class="treasure-category"
+						>
+							<header class="treasure-category-head">
+								<label>
+									<span>分类名</span>
+									<input v-model.trim="category.name" placeholder="电影">
+								</label>
+								<label>
+									<span>图标</span>
+									<input v-model.trim="category.icon" placeholder="ph:film-strip-bold">
+								</label>
+								<div class="treasure-row-actions">
+									<button :disabled="categoryIndex === 0" title="上移分类" type="button" @click="moveTreasureCategory(categoryIndex, -1)">
+										<Icon name="ph:arrow-up-bold" />
+									</button>
+									<button :disabled="categoryIndex === treasureDoc.categories.length - 1" title="下移分类" type="button" @click="moveTreasureCategory(categoryIndex, 1)">
+										<Icon name="ph:arrow-down-bold" />
+									</button>
+									<button class="danger" title="删除分类" type="button" @click="removeTreasureCategory(categoryIndex)">
+										<Icon name="ph:trash-bold" />
+									</button>
+								</div>
+							</header>
+
+							<article
+								v-for="(item, itemIndex) in category.items"
+								:key="itemIndex"
+								class="treasure-item"
+							>
+								<div class="treasure-cover">
+									<img
+										v-if="treasureCoverPreviews[treasureCoverKey(categoryIndex, itemIndex)] || item.cover"
+										:src="treasureCoverPreviews[treasureCoverKey(categoryIndex, itemIndex)] || item.cover"
+										:alt="item.title || '封面预览'"
+										loading="lazy"
+									>
+									<span v-else class="treasure-cover-empty">无封面</span>
+									<button
+										:disabled="!canUseGithub || uploadingTreasureCover === treasureCoverKey(categoryIndex, itemIndex)"
+										type="button"
+										@click="triggerTreasureCoverUpload(categoryIndex, itemIndex)"
+									>
+										<Icon :name="uploadingTreasureCover === treasureCoverKey(categoryIndex, itemIndex) ? 'line-md:loading-twotone-loop' : 'ph:upload-simple-bold'" />
+										<span>{{ item.cover ? '换图' : '上传' }}</span>
+									</button>
+								</div>
+
+								<div class="treasure-fields">
+									<label>
+										<span>标题</span>
+										<input v-model.trim="item.title" placeholder="生息之地">
+									</label>
+									<label>
+										<span>外链</span>
+										<input v-model.trim="item.link" placeholder="https://movie.douban.com/subject/34842493/">
+									</label>
+									<label>
+										<span>简介</span>
+										<input v-model.trim="item.description" placeholder="选填">
+									</label>
+									<label class="treasure-rating">
+										<span>评分</span>
+										<input v-model.number="item.rating" max="5" min="0" step="0.5" type="number" placeholder="选填">
+									</label>
+									<p class="treasure-cover-path">
+										<code>{{ item.cover || '尚未设置封面' }}</code>
+									</p>
+								</div>
+
+								<div class="treasure-row-actions">
+									<button :disabled="itemIndex === 0" title="上移条目" type="button" @click="moveTreasureItem(categoryIndex, itemIndex, -1)">
+										<Icon name="ph:arrow-up-bold" />
+									</button>
+									<button :disabled="itemIndex === category.items.length - 1" title="下移条目" type="button" @click="moveTreasureItem(categoryIndex, itemIndex, 1)">
+										<Icon name="ph:arrow-down-bold" />
+									</button>
+									<button class="danger" title="删除条目" type="button" @click="removeTreasureItem(categoryIndex, itemIndex)">
+										<Icon name="ph:trash-bold" />
+									</button>
+								</div>
+							</article>
+
+							<button class="secondary-button" type="button" @click="addTreasureItem(categoryIndex)">
+								<Icon name="ph:plus-bold" />
+								<span>新增条目</span>
+							</button>
+						</section>
+
+						<p v-if="!treasureDoc.categories.length" class="empty-text">
+							{{ isLoadingTreasure ? '正在读取藏宝阁…' : '还没有分类，先新增一个吧' }}
+						</p>
+
+						<button class="secondary-button" type="button" @click="addTreasureCategory">
+							<Icon name="ph:folder-plus-bold" />
+							<span>新增分类</span>
+						</button>
+					</template>
+
 					<textarea
+						v-else
 						v-model="treasureSource"
 						:disabled="isLoadingTreasure"
 						aria-label="藏宝阁 YAML"
 						placeholder="正在读取藏宝阁数据..."
 						spellcheck="false"
 					/>
+
+					<input
+						ref="treasureCoverInput"
+						accept="image/*"
+						hidden
+						type="file"
+						@change="uploadTreasureCover"
+					>
+
 					<div class="manager-actions">
 						<button class="secondary-button" :disabled="!canUseGithub || isLoadingTreasure" type="button" @click="openTreasureDialog">
 							<Icon :name="isLoadingTreasure ? 'line-md:loading-twotone-loop' : 'ph:arrow-clockwise-bold'" />
@@ -3596,6 +3907,168 @@ textarea {
 
 	label textarea {
 		height: 100%;
+	}
+}
+
+.treasure-form {
+	align-content: start;
+
+	textarea {
+		min-height: 20rem;
+		font-family: var(--font-monospace);
+		font-size: 0.86rem;
+		line-height: 1.65;
+		resize: vertical;
+	}
+}
+
+.treasure-modes {
+	display: flex;
+	gap: 0.4rem;
+
+	button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.7rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.4rem;
+		font-size: 0.85rem;
+		color: var(--c-text-2);
+
+		&.active {
+			border-color: var(--c-primary);
+			color: var(--c-primary);
+		}
+	}
+}
+
+.treasure-error {
+	padding: 0.5rem 0.7rem;
+	border: 1px solid var(--c-error);
+	border-radius: 0.4rem;
+	font-size: 0.85rem;
+	color: var(--c-error);
+}
+
+.treasure-category {
+	display: grid;
+	gap: 0.6rem;
+	padding: 0.7rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.5rem;
+	background-color: var(--c-bg-1);
+}
+
+.treasure-category-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.6rem;
+	padding-block-end: 0.6rem;
+	border-block-end: 1px solid var(--c-border);
+
+	label {
+		flex: 1 1 10rem;
+		min-width: 0;
+	}
+}
+
+.treasure-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.7rem;
+	padding: 0.6rem;
+	border: 1px solid var(--c-border);
+	border-radius: 0.45rem;
+}
+
+.treasure-cover {
+	display: grid;
+	flex: none;
+	gap: 0.35rem;
+	width: 5.5rem;
+
+	img {
+		width: 100%;
+		height: 7.5rem;
+		border-radius: 0.3rem;
+		background-color: var(--ld-bg-card);
+		object-fit: cover;
+	}
+
+	button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		padding: 0.25rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.3rem;
+		font-size: 0.78rem;
+		color: var(--c-text-2);
+	}
+}
+
+.treasure-cover-empty {
+	display: grid;
+	place-items: center;
+	height: 7.5rem;
+	border: 1px dashed var(--c-border);
+	border-radius: 0.3rem;
+	font-size: 0.8rem;
+	color: var(--c-text-3);
+}
+
+.treasure-fields {
+	display: grid;
+	flex: 1 1 auto;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.5rem;
+	min-width: 0;
+
+	label:has(input:not([type="number"])) {
+		grid-column: span 3;
+	}
+
+	> label:first-child {
+		grid-column: span 2;
+	}
+
+	.treasure-rating {
+		grid-column: span 1;
+	}
+}
+
+.treasure-cover-path {
+	grid-column: span 3;
+	overflow: hidden;
+	font-size: 0.76rem;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--c-text-3);
+}
+
+.treasure-row-actions {
+	display: flex;
+	flex: none;
+	gap: 0.3rem;
+
+	button {
+		display: inline-flex;
+		place-items: center;
+		padding: 0.3rem;
+		border: 1px solid var(--c-border);
+		border-radius: 0.3rem;
+		color: var(--c-text-2);
+
+		&:disabled {
+			opacity: 0.4;
+		}
+
+		&.danger {
+			color: var(--c-error);
+		}
 	}
 }
 

@@ -57,7 +57,8 @@
     "temporal-polyfill": "catalog:util",
     "vue": "catalog:framework",
     "vue-router": "catalog:framework",
-    "vue-tippy": "catalog:ui"
+    "vue-tippy": "catalog:ui",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:quality",
