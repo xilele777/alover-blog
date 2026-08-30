@@ -2286,8 +2286,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-<div v-if="!isAccessReady" class="admin-access-screen">
-	<div class="admin-access-card" aria-live="polite">
+<!--
+	这一屏是 SSR 首帧，此时页面的 scoped CSS 还在异步加载，
+	仅靠 class 会出现无样式闪现（文字跑到页面角落），因此居中规则内联兜底。
+-->
+<div v-if="!isAccessReady" class="admin-access-screen" style="display: grid; place-items: center; min-height: 100vh;">
+	<div class="admin-access-card" aria-live="polite" style="text-align: center;">
 		<Icon name="line-md:loading-twotone-loop" />
 		<span>正在验证后台访问权限…</span>
 	</div>
