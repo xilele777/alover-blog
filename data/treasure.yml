@@ -23,8 +23,13 @@ categories:
   - name: 音乐
     icon: ph:music-note-bold
     items:
-      - title: 拉赫玛尼诺夫第二交响曲三乐章
+      - title: 拉赫玛尼诺夫第二交响曲
         cover: /images/treasure/109951165868088770.jpg
-        link: https://163cn.tv/bdUEbeEI
+        link: https://music.163.com/#/album?id=106810
         description: 拉赫的悲伤是克制隐忍的，像地下的岩浆。他的热情和浪漫，却是肆意汪洋的，像海上喷薄而出的朝阳……
+        rating: 5
+      - title: 西贝柳斯D大调第二交响曲
+        cover: /images/treasure/2503587976447629.jpg
+        link: https://music.163.com/#/album?id=2301075
+        description: “一部绝对的杰作，是我们这个时代为数不多的与贝多芬的交响曲指向同一方向的交响乐作品之一。”——评论家卡尔弗洛丁（1903年）
         rating: 5
