@@ -7,6 +7,11 @@ categories:
         link: https://movie.douban.com/subject/34842493/
         description: 河南人的时代散文诗
         rating: 5
+      - title: 机器人之梦
+        cover: /images/treasure/p2928203369.webp
+        link: https://movie.douban.com/subject/35426925/
+        description: 你总会跳新的舞，但至少我们曾经共舞。
+        rating: 5
   - name: 书籍
     icon: ph:book-bold
     items:
