@@ -29,3 +29,6 @@ sidebar-*.png
 # Custom
 .vercel
 content/posts/test.md
+
+# favicon 设计源图，仅本地留存供重新实测几何用，不入库
+docs/favicon-source.jpg
