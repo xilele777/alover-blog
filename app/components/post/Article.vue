@@ -10,37 +10,13 @@ const showAllDate = isTimeDiffSignificant(props.date, props.updated)
 const categoryLabel = computed(() => props.categories?.[0])
 const categoryColor = computed(() => appConfig.article.categories[categoryLabel.value!]?.color)
 const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
-
-const sharedTitlePath = useSharedTitlePath()
-
-// 回程用响应式绑定即可，新快照在 Vue 渲染之后才取
-const sharedTitleStyle = computed(() => sharedTitlePath.value === props.path
-	? { viewTransitionName: SHARED_TITLE_NAME }
-	: undefined)
-
-// 去程必须同步写 DOM：响应式绑定要等微任务刷新，可能赶不上快照
-function onNavigate(e: MouseEvent) {
-	// 修饰键或非左键点击是「在新标签页打开」，本页不会导航
-	if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
-		return
-
-	// 同名元素同时存在会让浏览器整体跳过转场，先清掉上一张卡片的残留
-	for (const title of document.querySelectorAll<HTMLElement>('.article-title'))
-		title.style.viewTransitionName = ''
-
-	const title = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.article-title')
-	if (title)
-		title.style.viewTransitionName = SHARED_TITLE_NAME
-
-	sharedTitlePath.value = props.path
-}
 </script>
 
 <template>
-<UtilLink class="article-card card upraise" @click="onNavigate">
+<UtilLink class="article-card card upraise">
 	<NuxtImg v-if="image" class="article-cover" :src="image" :alt="title" />
 	<article>
-		<h2 class="article-title text-creative" :style="sharedTitleStyle">
+		<h2 class="article-title text-creative">
 			{{ title }}
 		</h2>
 

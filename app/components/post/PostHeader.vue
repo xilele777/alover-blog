@@ -142,9 +142,6 @@ const { copy, copied } = useCopy(shareText)
 	padding: 0.8em 1rem;
 	font-size: 1.6em;
 	line-height: 1.2;
-
-	// 与列表卡片的 <h2> 配对做共享元素变形。同时只挂载一个文章页，不存在重名
-	view-transition-name: vt-post-title;
 	z-index: 1;
 }
 
