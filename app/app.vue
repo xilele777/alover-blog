@@ -11,9 +11,7 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 <BlogSidebar v-if="!isAdminRoute" />
 <div id="content" :class="{ 'admin-shell': isAdminRoute }">
 	<main id="main-content">
-		<div class="page-view">
-			<NuxtPage />
-		</div>
+		<NuxtPage />
 		<BlogFooter v-if="!isAdminRoute" />
 	</main>
 	<BlogAside v-if="!isAdminRoute" />
@@ -57,8 +55,6 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 
 	// 此处不建议给内容设置 padding
 	> #main-content {
-		display: flex;
-		flex-direction: column;
 		flex-grow: 1; // 使较小宽度的内容占满
 
 		// overflow: hidden; // 会使一部分元素吸顶失效
@@ -66,18 +62,6 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 		// 使内容正确计算宽度而不横向溢出
 		// 也可设置 width: 0 或者 contain: inline-size（兼容性不佳）
 		min-width: 0;
-	}
-
-	.page-view {
-		// out-in 过渡期间旧页面已卸载、新页面未挂载，此处占位防止高度塌陷导致的滚动跳动
-		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		min-width: 0;
-	}
-
-	&:not(.admin-shell) > #main-content {
-		min-height: 100dvh;
 	}
 
 	&.admin-shell {

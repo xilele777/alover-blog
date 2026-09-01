@@ -40,6 +40,6 @@ const style = computed<CSSProperties>(() => ({
 
 .v-enter-active,
 .v-leave-active {
-	transition: opacity var(--motion-base) var(--ease-standard);
+	transition: all var(--delay);
 }
 </style>

@@ -37,7 +37,7 @@ const { widgets } = useWidgets(asideWidgets)
 		max-width: 100%;
 		max-height: 100%;
 		transform: var(--transform-end-far);
-		transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+		transition: transform 0.2s;
 
 		:deep(.blog-widget) {
 			padding: 0.5rem;

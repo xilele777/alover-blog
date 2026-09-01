@@ -17,10 +17,6 @@ function pluginPath(path: string) {
 export default defineNuxtConfig({
 	app: {
 		baseURL: '/',
-		pageTransition: {
-			name: 'page',
-			mode: 'out-in',
-		},
 		head: {
 			meta: [
 				{ name: 'author', content: [blogConfig.author.name, blogConfig.author.email].filter(Boolean).join(', ') },
