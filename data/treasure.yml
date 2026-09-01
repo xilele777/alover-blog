@@ -12,6 +12,11 @@ categories:
         link: https://movie.douban.com/subject/35426925/
         description: 你总会跳新的舞，但至少我们曾经共舞。
         rating: 5
+      - title: 俺爹俺娘
+        cover: /images/treasure/p2906176720.webp
+        link: https://movie.douban.com/subject/26947970/
+        description: 焦波把鏡頭對準了俺爹俺娘，記錄了他倆30年間的生活片斷，編織出一段兩個世紀老人平平常常的故事。
+        rating: 4.2
   - name: 书籍
     icon: ph:book-bold
     items:
