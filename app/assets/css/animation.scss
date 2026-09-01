@@ -47,19 +47,29 @@
 	transition: transform var(--motion-base) var(--ease-standard) !important;
 }
 
+// out-in 模式下总时长为 leave + enter，离场刻意更短以免整体拖沓
 .page-enter-active,
 .page-leave-active {
-	transition: opacity var(--motion-slow) var(--ease-standard), transform var(--motion-slow) var(--ease-standard);
+	will-change: opacity, transform;
 }
 
+.page-enter-active {
+	transition: opacity var(--motion-base) var(--ease-enter), transform var(--motion-base) var(--ease-enter);
+}
+
+.page-leave-active {
+	transition: opacity var(--motion-fast) var(--ease-exit), transform var(--motion-fast) var(--ease-exit);
+}
+
+// 不使用 scale：整页缩放会让文字重新光栅化，既发虚又掉帧
 .page-enter-from {
 	opacity: 0;
-	transform: translateY(8px) scale(0.995);
+	transform: translate3d(0, 8px, 0);
 }
 
 .page-leave-to {
 	opacity: 0;
-	transform: translateY(-4px);
+	transform: translate3d(0, -4px, 0);
 }
 
 .collapse-enter-active,
