@@ -77,31 +77,22 @@ const cup = x0 => `<rect x="${n(X(x0))}" y="${n(Y(CUP.y))}" width="${n(S(CUP.w))
 // ---------- 眼睛 ----------
 const circle = (cx, cy, r) => `<circle cx="${n(X(cx))}" cy="${n(Y(cy))}" r="${n(S(r))}"/>`
 
-// 配色用「表现属性打底 + CSS 覆盖深色」而非 CSS 变量：
-// librsvg 等渲染器不支持 var()，用变量会导致描边丢失、填充回退成黑色。
-// 表现属性保证任何渲染器都能出浅色版，支持 CSS 的浏览器再按系统主题覆盖。
+// 配色不做深色模式适配，只有这一套。
 //
-// 瞳孔刻意不参与反转，两种模式都是 INK：
-//   浅色模式 —— 白眼圈 + 深色瞳孔；
-//   深色模式 —— 眼圈转为 INK 后与瞳孔同色，合并成一只深色实心眼。
-// 若让瞳孔跟着反转成浅色，小尺寸下会读成空眼窝（骷髅感），语义崩坏。
+// 曾尝试过 prefers-color-scheme 反转（猫头转浅、眼圈转深），结论是不可行：
+// 浅色块一旦成为主体就会被读成「一张脸」，两只深色眼睛随之变成「眼窝」，
+// 整体呈现骷髅感，语义与「黑猫」完全相反。调整眼睛画法（实心眼、仅留瞳孔）
+// 都救不回来，问题出在反转本身。
+//
+// 代价：深色标签栏下猫头几乎融进背景，靠橙色耳罩与白色眼圈提供辨识度。
 const INK = '#17171b'
 const PAPER = '#fff'
-const INK_D = '#f4f4f6'
-const PAPER_D = '#17171b'
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="戴耳机的猫">
-	<style>
-		@media (prefers-color-scheme: dark) {
-			.ink { fill: ${INK_D} }
-			.band { stroke: ${INK_D} }
-			.paper { fill: ${PAPER_D} }
-		}
-	</style>
-	<path class="band" d="${bandPath}" fill="none" stroke="${INK}" stroke-width="${n(S(BAND.w))}" stroke-linecap="round"/>
+	<path d="${bandPath}" fill="none" stroke="${INK}" stroke-width="${n(S(BAND.w))}" stroke-linecap="round"/>
 	<g fill="${CUP_COLOR}">${cup(CUP.x)}${cup(mx(CUP.x + CUP.w))}</g>
-	<path class="ink" d="${d}" fill="${INK}"/>
-	<g class="paper" fill="${PAPER}">${circle(EYE.cx, EYE.cy, EYE.r)}${circle(mx(EYE.cx), EYE.cy, EYE.r)}</g>
+	<path d="${d}" fill="${INK}"/>
+	<g fill="${PAPER}">${circle(EYE.cx, EYE.cy, EYE.r)}${circle(mx(EYE.cx), EYE.cy, EYE.r)}</g>
 	<g fill="${INK}">${circle(EYE.cx, EYE.cy, EYE.pupil)}${circle(mx(EYE.cx), EYE.cy, EYE.pupil)}</g>
 </svg>
 `
