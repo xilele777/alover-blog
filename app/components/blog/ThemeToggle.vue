@@ -32,7 +32,7 @@ const colorMode = useColorMode()
 	> button {
 		padding: 4px 1rem;
 		border-radius: 1rem;
-		transition: all 0.1s;
+		transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 
 		&:hover {
 			background-color: var(--c-bg-soft);
@@ -43,6 +43,7 @@ const colorMode = useColorMode()
 			box-shadow: var(--box-shadow-2);
 			background-color: var(--ld-bg-card);
 			color: var(--c-text-1);
+			transform: translateY(-1px);
 			cursor: auto;
 		}
 	}

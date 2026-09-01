@@ -177,13 +177,13 @@ function openActiveItem() {
 	line-height: 5em;
 	text-align: center;
 	color: var(--c-text-3);
-	transition: all 0.5s;
+	transition: max-height var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard);
 }
 
 .search-result {
 	max-height: 75vh;
 	max-height: 75dvh;
-	transition: all 0.5s;
+	transition: max-height var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard);
 	scroll-padding: var(--fadeout-height);
 }
 
@@ -197,17 +197,18 @@ function openActiveItem() {
 	font-size: 0.8em;
 	text-align: center;
 	color: var(--c-text-3);
-	transition: all 0.5s;
+	transition: max-height var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard);
 }
 
 .expand-enter-active,
 .expand-leave-active {
-	transition: all 0.5s;
+	transition: max-height var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard);
 }
 
 .expand-enter-from,
 .expand-leave-to {
 	opacity: 0;
 	max-height: 0;
+	transform: translateY(-4px);
 }
 </style>

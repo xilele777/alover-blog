@@ -5,7 +5,7 @@
 	border-radius: 0.5em;
 	box-shadow: var(--box-shadow-1);
 	background-color: var(--ld-bg-card);
-	transition: all 0.2s;
+	transition: transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 
 	&.upraise:hover {
 		box-shadow: var(--box-shadow-3);

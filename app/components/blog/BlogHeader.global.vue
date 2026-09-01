@@ -79,9 +79,9 @@ const appConfig = useAppConfig()
 	font-variation-settings: "wght" 600, "BEVL" 100;
 
 	> .split-char {
-		animation: 3.14s infinite alternate vf-weight, 2.72s infinite alternate vf-bevel;
-		animation-delay: var(--delay);
-		animation-play-state: paused;
+		display: inline-block;
+		transition: transform var(--motion-fast) var(--ease-standard), color var(--motion-fast) ease;
+		transition-delay: var(--delay, 0ms);
 	}
 }
 
@@ -90,15 +90,8 @@ const appConfig = useAppConfig()
 	font-size: 0.8em;
 }
 
-@keyframes vf-weight {
-	0% { font-weight: 600; }
-	38.2% { font-weight: 300; }
-	100% { font-weight: 900; }
-}
-
-@keyframes vf-bevel {
-	from { font-variation-settings: "BEVL" 100; }
-	to { font-variation-settings: "BEVL" 1; }
+.blog-header:hover .header-title > .split-char {
+	transform: translateY(-1px);
 }
 
 .emoji-tail {
@@ -116,7 +109,7 @@ const appConfig = useAppConfig()
 	z-index: -2;
 
 	> .split-char {
-		animation: 5s infinite alternate emoji-floating;
+		animation: 5s ease-in-out infinite alternate emoji-floating;
 		animation-delay: var(--delay);
 		animation-play-state: paused;
 	}

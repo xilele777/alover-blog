@@ -1,13 +1,19 @@
 /* stylelint-disable declaration-no-important */
 :root {
-	--max-bezier-to-full: cubic-bezier(0.5, 0, 1, 0.5);
-	--max-bezier-to-collapse: cubic-bezier(0, 0.5, 0.5, 1);
+	--motion-fast: 160ms;
+	--motion-base: 240ms;
+	--motion-slow: 380ms;
+	--ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-exit: cubic-bezier(0.4, 0, 1, 1);
+	--max-bezier-to-full: var(--ease-enter);
+	--max-bezier-to-collapse: var(--ease-exit);
 }
 
 @keyframes float-in {
 	0% {
 		opacity: 0;
-		transform: translateY(var(--float-distance, 10%));
+		transform: translateY(var(--float-distance, 8px));
 	}
 
 	100% {
@@ -18,33 +24,78 @@
 
 .float-in-enter-active,
 .float-in-leave-active {
-	transition: all var(--delay) !important;
+	transition-property: opacity, transform !important;
+	transition-duration: var(--motion-base) !important;
+	transition-timing-function: var(--ease-standard) !important;
+}
+
+.float-in-enter-active {
+	transition-delay: var(--delay, 0ms) !important;
+}
+
+.float-in-leave-active {
+	transition-timing-function: var(--ease-exit) !important;
 }
 
 .float-in-enter-from,
 .float-in-leave-to {
 	opacity: 0;
-	transform: translateY(var(--float-distance, 10%));
+	transform: translateY(var(--float-distance, 8px));
 }
 
 .float-in-move {
-	transition: transform var(--delay) !important;
+	transition: transform var(--motion-base) var(--ease-standard) !important;
+}
+
+.page-enter-active,
+.page-leave-active {
+	transition: opacity var(--motion-slow) var(--ease-standard), transform var(--motion-slow) var(--ease-standard);
+}
+
+.page-enter-from {
+	opacity: 0;
+	transform: translateY(8px) scale(0.995);
+}
+
+.page-leave-to {
+	opacity: 0;
+	transform: translateY(-4px);
 }
 
 .collapse-enter-active,
 .collapse-leave-active {
 	contain: paint;
-	transition: max-height 0.1s;
+	transition: max-height var(--motion-base) var(--ease-standard), opacity var(--motion-base) var(--ease-standard);
 }
 
 .collapse-enter-from,
 .collapse-leave-to {
+	opacity: 0;
 	max-height: 0;
 	transition-timing-function: var(--max-bezier-to-collapse);
 }
 
 .collapse-enter-to,
 .collapse-leave-from {
+	opacity: 1;
 	max-height: 50vh;
 	transition-timing-function: var(--max-bezier-to-full);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 1ms !important;
+		transition-duration: 1ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+	}
+
+	.float-in-enter-from,
+	.float-in-leave-to,
+	.page-enter-from,
+	.page-leave-to {
+		transform: none !important;
+	}
 }

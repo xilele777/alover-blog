@@ -68,7 +68,7 @@ const debouncedSelection = refDebounced(text)
 		backdrop-filter: blur(0.5rem);
 		color: currentcolor;
 		transform: var(--transform-start-far);
-		transition: transform 0.2s;
+		transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
 		z-index: var(--z-index-popover);
 
 		&.show {
@@ -100,12 +100,13 @@ const debouncedSelection = refDebounced(text)
 	gap: 0.5em;
 	padding: 0.5em 1em;
 	border-radius: 0.5em;
-	transition: all 0.2s;
+	transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard);
 
 	&:hover,
 	&.router-link-active {
 		background-color: var(--c-bg-soft);
 		color: var(--c-text);
+		transform: translateX(2px);
 	}
 
 	&.router-link-active::after {
