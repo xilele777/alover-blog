@@ -16,7 +16,7 @@ const basicConfig = {
 		name: '署名-非商业性使用-相同方式共享 4.0 国际',
 		url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans',
 	},
-	favicon: '/Gemini_Generated_Image_lnv41lnv41lnv41l.jpg',
+	favicon: '/Gemini_Generated_Image_tj06xutj06xutj06.svg',
 	language: 'zh-CN',
 	timeEstablished: '2026-03-16 21:00:00',
 	timeZone: 'Asia/Shanghai',
