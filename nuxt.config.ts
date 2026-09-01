@@ -27,7 +27,7 @@ export default defineNuxtConfig({
 			],
 			link: [
 				{ rel: 'alternate', type: 'application/atom+xml', href: '/atom.xml' },
-				{ rel: 'icon', type: 'image/png', href: blogConfig.favicon },
+				{ rel: 'icon', type: 'image/svg+xml', href: blogConfig.favicon },
 				{ rel: 'preconnect', href: blogConfig.twikoo?.preload },
 				{ rel: 'shortcut icon', href: blogConfig.favicon },
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
