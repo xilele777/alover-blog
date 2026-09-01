@@ -32,11 +32,15 @@ const colorMode = useColorMode()
 	> button {
 		padding: 4px 1rem;
 		border-radius: 1rem;
-		transition: all 0.1s;
+		transition-property: background-color, box-shadow, color;
+		transition-duration: var(--dur-instant);
+		transition-timing-function: var(--ease-out);
 
-		&:hover {
-			background-color: var(--c-bg-soft);
-			color: var(--c-text-1);
+		@media (hover: hover) {
+			&:hover {
+				background-color: var(--c-bg-soft);
+				color: var(--c-text-1);
+			}
 		}
 
 		&.active {

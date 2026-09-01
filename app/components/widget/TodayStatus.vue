@@ -38,7 +38,7 @@ const { data: todayStatus } = await useAsyncData(
 	font-weight: 800;
 	letter-spacing: 0.05em;
 	color: transparent;
-	transition: background-position 0.2s;
+	transition: background-position var(--dur-base) var(--ease-out);
 
 	.blog-widget:hover & {
 		background-position: 0 0;

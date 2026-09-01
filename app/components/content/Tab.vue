@@ -58,11 +58,13 @@ button {
 	padding: 0.3em 0.5em;
 	border-radius: 0.4em;
 	color: var(--c-text-2);
-	transition: all 0.2s;
+	transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 
-	&:hover {
-		background-color: var(--c-bg-soft);
-		color: var(--c-text);
+	@media (hover: hover) {
+		&:hover {
+			background-color: var(--c-bg-soft);
+			color: var(--c-text);
+		}
 	}
 
 	&::before, &::after {

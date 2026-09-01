@@ -57,7 +57,12 @@ defineEmits<{
 	box-shadow: var(--box-shadow-2), var(--box-shadow-3);
 	background-color: var(--c-bg-a80);
 	backdrop-filter: blur(1rem) saturate(2);
-	transition: all var(--delay);
+	transition: opacity var(--dur-slow) var(--ease-out), bottom var(--dur-slow) var(--ease-out);
+
+	&.v-leave-active {
+		transition-duration: var(--dur-fast);
+		transition-timing-function: var(--ease-in);
+	}
 
 	&.v-enter-from,
 	&.v-leave-to {

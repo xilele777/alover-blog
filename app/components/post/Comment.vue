@@ -196,7 +196,7 @@ onMounted(() => {
 
 	.tk-expand {
 		border-radius: 0.5em;
-		transition: background-color 0.1s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 	}
 
 	.tippy-svg-arrow > svg {

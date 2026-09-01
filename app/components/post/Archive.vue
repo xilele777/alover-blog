@@ -47,8 +47,7 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 	column-gap: 0.5em;
 	min-width: 0;
 	margin: var(--archive-item-gap, 0.2em) 0;
-	transition: all 0.2s;
-	animation: float-in 0.2s var(--delay) backwards;
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	@media (max-width: $breakpoint-mobile) {
 		font-size: 0.9em;
@@ -56,7 +55,13 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 
 	.dim-hover {
 		opacity: 0.4;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
+	}
+
+	// hover 改的是后代（标题颜色、次要信息透明度），过渡必须挂在后代上：
+	// transition 不继承，原先写在 .article-item 上的 `all` 其实一直没生效
+	.article-title {
+		transition: color var(--dur-instant) var(--ease-out);
 	}
 
 	:deep(time) {
@@ -95,7 +100,7 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 		mask-image: linear-gradient(to left, #FFF, transparent);
 		opacity: 0.25;
 		pointer-events: none;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 	}
 }
 

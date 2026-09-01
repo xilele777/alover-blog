@@ -42,7 +42,7 @@ if (import.meta.dev) {
 	margin: 1rem 0.5rem;
 	padding: 0.5rem;
 	font-size: 0.9em;
-	transition: opacity 0.2s;
+	transition: opacity var(--dur-instant) var(--ease-out);
 
 	> .static {
 		opacity: 0;

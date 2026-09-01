@@ -5,11 +5,14 @@
 	border-radius: 0.5em;
 	box-shadow: var(--box-shadow-1);
 	background-color: var(--ld-bg-card);
-	transition: all 0.2s;
+	transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 
-	&.upraise:hover {
-		box-shadow: var(--box-shadow-3);
-		transform: translateY(-2px);
+	// 触屏上 :hover 会在点击后粘住，抬升状态迟迟不还原
+	@media (hover: hover) {
+		&.upraise:hover {
+			box-shadow: var(--box-shadow-3);
+			transform: translateY(-2px);
+		}
 	}
 }
 
@@ -26,7 +29,7 @@
 		border: 2px solid transparent;
 		border-radius: inherit;
 		background: linear-gradient(var(--c-bg-a80), var(--c-bg-a80)) padding-box, linear-gradient(45deg, var(--c-accent), var(--c-primary-soft)) border-box;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 		z-index: -1;
 	}
 

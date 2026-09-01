@@ -136,7 +136,7 @@ function handleKeydown(event: KeyboardEvent) {
 
 	.at-slide-hover {
 		opacity: 0;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-fast) var(--ease-out);
 	}
 
 	&:hover .at-slide-hover,
@@ -183,7 +183,7 @@ function handleKeydown(event: KeyboardEvent) {
 		border: 0;
 		border-radius: 50%;
 		background-color: var(--c-text-3);
-		transition: width 0.2s, background-color 0.2s;
+		transition: width var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 
 		&[aria-current="true"] {
 			width: 1.25rem;
@@ -220,7 +220,8 @@ function handleKeydown(event: KeyboardEvent) {
 	padding: 0.5em 0.2em;
 	font-size: 1.5em;
 	transform: translateY(-50%);
-	transition: all 0.2s;
+
+	// 显隐由 .at-slide-hover 统一负责，这里不再声明 transition
 
 	&.prev { inset-inline-start: 1rem; }
 	&.next { inset-inline-end: 1rem; }
@@ -264,7 +265,7 @@ function handleKeydown(event: KeyboardEvent) {
 		text-align: center;
 		text-shadow: var(--text-shadow-black);
 		color: white;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-fast) var(--ease-out);
 	}
 
 	> .stable-info {

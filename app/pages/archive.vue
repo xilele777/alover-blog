@@ -101,7 +101,7 @@ onUnmounted(() => {
 				v-bind="article"
 				:to="article.path"
 				:use-updated="sortOrder === 'updated'"
-				:style="getFixedDelay(index * 0.03)"
+				:style="getListStagger(index)"
 			/>
 		</TransitionGroup>
 	</section>
@@ -166,7 +166,7 @@ onUnmounted(() => {
 	top: 0;
 	font-size: min(1.5em, 5vw);
 	color: transparent;
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 
 	&::selection, :hover > & {
 		color: var(--c-text-3);
@@ -191,7 +191,7 @@ onUnmounted(() => {
 	> .archive-age {
 		position: absolute;
 		inset-inline-end: 0;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 
 		> .age-label {
 			font-size: 0.5em;

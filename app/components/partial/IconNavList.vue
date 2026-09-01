@@ -28,7 +28,7 @@ menu {
 	a {
 		padding: 0.5em;
 		border-radius: 2em;
-		transition: background-color 0.2s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 
 		&:hover {
 			background-color: var(--c-bg-soft);

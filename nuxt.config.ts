@@ -72,6 +72,7 @@ export default defineNuxtConfig({
 	experimental: {
 		extractAsyncDataHandlers: true,
 		typescriptPlugin: true,
+		viewTransition: true,
 	},
 
 	features: {

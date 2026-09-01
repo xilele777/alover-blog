@@ -3,7 +3,6 @@
 	--end: right;
 	--transform-start-far: translateX(-100%);
 	--transform-end-far: translateX(100%);
-	--delay: 0.2s;
 	--z-index-popover: 100;
 	--text-shadow-black: 0 0.1em 0.1em #0003, 0 0.1em 0.2em #0003;
 	--box-shadow-1: 0 0.1em 0.2em var(--ld-shadow);
@@ -19,7 +18,7 @@
 	text-autospace: normal;
 	text-size-adjust: none;
 	color: var(--c-text-1);
-	transition: color 0.1s, background-color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 	scroll-behavior: smooth;
 	scroll-padding: 2rem;
 	scrollbar-color: var(--c-text-3) transparent;
@@ -150,9 +149,12 @@ img {
 		opacity: 0;
 	}
 
-	&.v-enter-active,
+	&.v-enter-active {
+		transition: opacity var(--dur-slow) var(--ease-out);
+	}
+
 	&.v-leave-active {
-		transition: all var(--delay);
+		transition: opacity var(--dur-fast) var(--ease-in);
 	}
 }
 
@@ -164,7 +166,7 @@ img {
 	font-size: 0.8rem;
 	line-height: 1.4;
 	color: var(--c-text-2);
-	animation: float-in 0.2s;
+	animation: float-in var(--dur-fast) var(--ease-out);
 
 	&[data-state="hidden"] {
 		opacity: 0;

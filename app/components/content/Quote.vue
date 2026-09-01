@@ -36,16 +36,18 @@ const icon = computed(() => props.icon || 'ph:chat-centered-text-duotone')
 	margin-bottom: -0.5em;
 	mask-image: linear-gradient(#FFF, transparent);
 	font-size: 4rem;
-	transition: all 0.2s;
+	transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 	z-index: -1;
 
 	@media (max-width: $breakpoint-phone) {
 		font-size: 3rem;
 	}
 
-	:hover > & {
-		opacity: 1;
-		transform: translateY(-0.5rem);
+	@media (hover: hover) {
+		:hover > & {
+			opacity: 1;
+			transform: translateY(-0.5rem);
+		}
 	}
 }
 </style>

@@ -30,7 +30,7 @@ withDefaults(defineProps<Partial<SearchItem>>(), {
 	margin: 0.5em;
 	padding: 0.5em 0.8em;
 	border-radius: 0.5em;
-	transition: background-color 0.2s;
+	transition: background-color var(--dur-instant) var(--ease-out);
 
 	&.active {
 		background-color: var(--c-bg-soft);
@@ -39,7 +39,7 @@ withDefaults(defineProps<Partial<SearchItem>>(), {
 
 .title:not(:first-child) {
 	opacity: 0.5;
-	transition: opacity 0.2s;
+	transition: opacity var(--dur-instant) var(--ease-out);
 
 	.active & {
 		opacity: 1;

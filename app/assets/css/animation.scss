@@ -1,13 +1,40 @@
 /* stylelint-disable declaration-no-important */
 :root {
-	--max-bezier-to-full: cubic-bezier(0.5, 0, 1, 0.5);
-	--max-bezier-to-collapse: cubic-bezier(0, 0.5, 0.5, 1);
+	// 时长按位移距离分层：移动越远需要越久，否则看起来像瞬移
+	--dur-instant: 90ms; // 颜色、透明度等无位移变化
+	--dur-fast: 160ms; // 微交互：hover、按钮、开关
+	--dur-base: 240ms; // 中等位移：下拉、折叠、目录
+	--dur-slow: 320ms; // 大位移：页面转场、侧栏、弹层
+
+	// 缓动一律非对称（快出慢收），CSS 默认的 ease 接近对称，观感等同匀速
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1); // 默认：入场与响应
+	--ease-in: cubic-bezier(0.64, 0, 0.78, 0); // 离场：收得干脆
+	--ease-inout: cubic-bezier(0.65, 0, 0.35, 1); // 双向位移
+	// 峰值 1.0259（t≈0.696），即过冲约 2.6%。仅用于页面转场与共享元素变形，
+	// 用在 hover 等高频微交互上会显得廉价
+	--ease-soft: cubic-bezier(0.34, 1.28, 0.64, 1);
+
+	// 列表错峰延迟，由 getStagger / getListStagger 逐项覆盖
+	--stagger: 0s;
+
+	// float-in 的动画名，供返程整体关闭（见下方 data-nav 分支）
+	--anim-float-in: float-in;
+
+	// 兼容旧名：collapse 动画仍在引用
+	--max-bezier-to-full: var(--ease-out);
+	--max-bezier-to-collapse: var(--ease-in);
+}
+
+// 返程不重放入场动画：整页转场已经在动，卡片再逐个浮入会让正在变形的标题
+// 与它所属的卡片脱节
+html[data-nav="back"] {
+	--anim-float-in: none;
 }
 
 @keyframes float-in {
 	0% {
 		opacity: 0;
-		transform: translateY(var(--float-distance, 10%));
+		transform: translateY(var(--float-distance, 8px));
 	}
 
 	100% {
@@ -18,23 +45,47 @@
 
 .float-in-enter-active,
 .float-in-leave-active {
-	transition: all var(--delay) !important;
+	// 只过渡这两个属性：all 会把 color/background-color 一并纳入，
+	// 导致深浅色切换时全站跑颜色动画
+	transition-property: opacity, transform !important;
+
+	// 位移大的消费方（如搜索面板的 20vh）用 --float-dur 单独调慢，
+	// 与 --float-distance 成对使用
+	transition-duration: var(--float-dur, var(--dur-base)) !important;
+	transition-timing-function: var(--ease-out) !important;
+
+	// 多数消费方在元素上还挂了 `animation: float-in ...`（首屏进场用）。
+	// TransitionGroup 未设 appear，首屏不加这些类，两者本不冲突；
+	// 但翻页时类会加上，此处必须停掉 animation，否则两套动画抢同一元素
+	animation: none !important;
+}
+
+.float-in-enter-active {
+	transition-delay: var(--stagger, 0s) !important;
+}
+
+.float-in-leave-active {
+	transition-duration: var(--dur-fast) !important;
+	transition-timing-function: var(--ease-in) !important;
+
+	// 离场不错峰：用户已经翻页了，没必要再等
+	transition-delay: 0s !important;
 }
 
 .float-in-enter-from,
 .float-in-leave-to {
 	opacity: 0;
-	transform: translateY(var(--float-distance, 10%));
+	transform: translateY(var(--float-distance, 8px));
 }
 
 .float-in-move {
-	transition: transform var(--delay) !important;
+	transition: transform var(--dur-base) var(--ease-out) !important;
 }
 
 .collapse-enter-active,
 .collapse-leave-active {
 	contain: paint;
-	transition: max-height 0.1s;
+	transition: max-height var(--dur-base);
 }
 
 .collapse-enter-from,
@@ -47,4 +98,135 @@
 .collapse-leave-from {
 	max-height: 50vh;
 	transition-timing-function: var(--max-bezier-to-full);
+}
+
+// 页面转场：侧栏与右栏各自具名，会被提取成独立图层并排除出 root 快照，
+// 因此位置不变即视觉静止，只有正文区（留在 root 内）做方向性位移。
+// 不给 #main-content 具名：root 快照是视口大小，而具名元素的快照是元素
+// 完整尺寸，长文章会生成超大纹理并可能超出 GPU 上限导致转场失败
+@keyframes vt-fade-out {
+	to { opacity: 0; }
+}
+
+@keyframes vt-fade-in {
+	from { opacity: 0; }
+}
+
+@keyframes vt-exit-to-start {
+	to {
+		opacity: 0;
+		transform: translateX(-24px);
+	}
+}
+
+@keyframes vt-enter-from-end {
+	from {
+		opacity: 0;
+		transform: translateX(24px);
+	}
+}
+
+@keyframes vt-exit-to-end {
+	to {
+		opacity: 0;
+		transform: translateX(24px);
+	}
+}
+
+@keyframes vt-enter-from-start {
+	from {
+		opacity: 0;
+		transform: translateX(-24px);
+	}
+}
+
+// 位移用固定 px 而非百分比：百分比在宽屏上会变成巨大位移
+::view-transition-old(root) {
+	animation: vt-fade-out var(--dur-slow) var(--ease-in) both;
+}
+
+::view-transition-new(root) {
+	animation: vt-fade-in var(--dur-slow) var(--ease-out) both;
+}
+
+html[data-nav="forward"] {
+	&::view-transition-old(root) {
+		animation-name: vt-exit-to-start;
+	}
+
+	&::view-transition-new(root) {
+		animation-name: vt-enter-from-end;
+	}
+}
+
+html[data-nav="back"] {
+	&::view-transition-old(root) {
+		animation-name: vt-exit-to-end;
+	}
+
+	&::view-transition-new(root) {
+		animation-name: vt-enter-from-start;
+	}
+}
+
+// 同层级跳转（如首页↔归档）只做交叉淡入，不位移——位移会暗示层级关系
+html[data-nav="flat"] {
+	&::view-transition-old(root) {
+		animation-name: vt-fade-out;
+	}
+
+	&::view-transition-new(root) {
+		animation-name: vt-fade-in;
+	}
+}
+
+// 标题共享元素变形：位置与尺寸慢慢过渡，文字快速交叉淡入。
+// 若两张快照等速淡入淡出，中途会同时看到两行字并糊成一团
+::view-transition-group(vt-post-title) {
+	animation-duration: var(--dur-slow);
+	animation-timing-function: var(--ease-soft);
+}
+
+::view-transition-old(vt-post-title) {
+	animation-duration: var(--dur-fast);
+	animation-timing-function: var(--ease-in);
+}
+
+::view-transition-new(vt-post-title) {
+	animation-duration: var(--dur-slow);
+	animation-timing-function: var(--ease-out);
+}
+
+// 侧栏在两个页面同名并自动配对，位置不变；此处只压掉默认的交叉淡入，
+// 避免内容相同的侧栏出现无谓的闪烁
+::view-transition-group(vt-sidebar),
+::view-transition-group(vt-aside) {
+	animation-duration: var(--dur-base);
+	animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+
+	// 滚动驱动的渐隐遮罩不是「动效」：它只把滚动位置静态映射成蒙版，不会自行运动。
+	// 若被上面的 0.01ms 命中，刚一滚动遮罩就跳到终态
+	.scrollcheck-x,
+	.scrollcheck-y {
+		animation-duration: auto !important;
+	}
+
+	// 同为滚动驱动，但 text-zoom 确实是动效，该关掉。
+	// 只压时长会把它定格在放大态，得整条动画停掉才能回到原始字号
+	.text-zoom {
+		animation: none !important;
+	}
+
+	// 页面转场无需在此处理：Nuxt 的 view-transitions 插件自行检测
+	// prefers-reduced-motion 并跳过整个转场
 }

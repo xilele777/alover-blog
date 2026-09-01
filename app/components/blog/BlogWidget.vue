@@ -33,7 +33,7 @@ defineProps<{
 
 	&.dim {
 		opacity: 0.3;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 
 		#blog-aside:hover &,
 		&:focus-within,
@@ -52,7 +52,7 @@ defineProps<{
 	color: var(--c-text-2);
 
 	a {
-		transition: color 0.2s;
+		transition: color var(--dur-instant) var(--ease-out);
 	}
 
 	> [onclick]:hover, > [href]:hover {

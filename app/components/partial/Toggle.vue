@@ -32,7 +32,7 @@ const modelValue = defineModel<boolean>()
 		outline: 1px solid var(--c-text-1);
 		outline-offset: -1px;
 		vertical-align: text-bottom;
-		transition: background-color 0.2s, outline-color 0.2s;
+		transition: background-color var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
 	}
 
 	&::after {
@@ -44,10 +44,16 @@ const modelValue = defineModel<boolean>()
 		aspect-ratio: 1;
 		border-radius: 50%;
 		background-color: var(--c-text-1);
-		transition: all 0.2s;
 
-		:hover > & {
-			filter: contrast(0.6);
+		// 与 ::before 的轨道同时长，否则滑块跑完了轨道还在变色
+		transition-property: background-color, filter, transform;
+		transition-duration: var(--dur-fast);
+		transition-timing-function: var(--ease-out);
+
+		@media (hover: hover) {
+			:hover > & {
+				filter: contrast(0.6);
+			}
 		}
 	}
 

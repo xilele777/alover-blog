@@ -37,7 +37,10 @@ const { widgets } = useWidgets(asideWidgets)
 		max-width: 100%;
 		max-height: 100%;
 		transform: var(--transform-end-far);
-		transition: transform 0.2s;
+
+		// 开慢关快：浏览器取「目标态」的 transition，所以进场时长写在 .show 上
+		transition: transform var(--dur-fast) var(--ease-in);
+		overscroll-behavior: contain; // 抽屉态下滑到头不要把身后的正文一起带着滚
 
 		:deep(.blog-widget) {
 			padding: 0.5rem;
@@ -49,6 +52,8 @@ const { widgets } = useWidgets(asideWidgets)
 
 		&.show {
 			transform: none;
+			transition-duration: var(--dur-slow);
+			transition-timing-function: var(--ease-out);
 		}
 	}
 }

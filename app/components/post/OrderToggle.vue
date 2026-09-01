@@ -73,7 +73,7 @@ function toggleDirection() {
 	color: var(--c-text-2);
 
 	:deep(button), :deep(a) {
-		transition: color 0.2s;
+		transition: color var(--dur-instant) var(--ease-out);
 
 		&:hover {
 			color: var(--c-primary);
@@ -83,7 +83,7 @@ function toggleDirection() {
 	.toggle-direction {
 		display: inline-block;
 		margin-inline-end: 0.1em;
-		transition: transform 0.2s;
+		transition: transform var(--dur-base) var(--ease-inout);
 
 		&.ascending {
 			transform: scaleY(-1);

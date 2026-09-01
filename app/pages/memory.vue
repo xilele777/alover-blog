@@ -37,7 +37,7 @@ const memories = computed(() => {
 	</header>
 
 	<TransitionGroup v-if="memories.length" tag="div" class="memory-feed" name="float-in">
-		<article v-for="(memory, index) in memories" :key="memory.path" class="memory-entry" :style="getFixedDelay(index * 0.05)">
+		<article v-for="(memory, index) in memories" :key="memory.path" class="memory-entry" :style="getListStagger(index)">
 			<div class="memory-avatar">
 				<NuxtImg :src="appConfig.author.avatar" :alt="appConfig.author.name" />
 			</div>
@@ -124,7 +124,7 @@ const memories = computed(() => {
 	gap: 0.7rem;
 	padding: 0.8rem 0;
 	border-bottom: 1px solid var(--c-border);
-	animation: float-in 0.2s var(--delay) backwards;
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 }
 
 .memory-avatar {

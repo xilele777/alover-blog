@@ -38,8 +38,11 @@ const style = computed<CSSProperties>(() => ({
 	opacity: 0;
 }
 
-.v-enter-active,
+.v-enter-active {
+	transition: opacity var(--dur-slow) var(--ease-out);
+}
+
 .v-leave-active {
-	transition: all var(--delay);
+	transition: opacity var(--dur-fast) var(--ease-in);
 }
 </style>

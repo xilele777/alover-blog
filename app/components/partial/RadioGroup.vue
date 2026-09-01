@@ -38,7 +38,9 @@ const modelValue = defineModel<T>()
 	padding: 0.2em;
 	border: 1px solid transparent;
 	background-color: var(--c-bg-2);
-	transition: all 0.2s;
+	transition-property: background-color, border-color, color;
+	transition-duration: var(--dur-instant);
+	transition-timing-function: var(--ease-out);
 
 	&:first-child {
 		border-start-start-radius: 0.5em;
@@ -50,9 +52,11 @@ const modelValue = defineModel<T>()
 		border-end-end-radius: 0.5em;
 	}
 
-	&:hover {
-		background-color: var(--c-bg-1);
-		color: var(--c-primary);
+	@media (hover: hover) {
+		&:hover {
+			background-color: var(--c-bg-1);
+			color: var(--c-primary);
+		}
 	}
 
 	&:focus {

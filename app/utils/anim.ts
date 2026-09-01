@@ -34,4 +34,15 @@ export function animateBetweenRects(
 	})
 }
 
-export const getFixedDelay = (s: number, fixed = 2) => ({ '--delay': `${s.toFixed(fixed)}s` })
+/** 列表错峰的单步间隔（秒）与封顶下标 */
+const STAGGER_STEP = 0.04
+const STAGGER_MAX_INDEX = 8
+
+/** 按秒设置错峰延迟。用于非列表场景，如逐字动画的相位偏移（允许负值） */
+export const getStagger = (s: number, fixed = 2) => ({ '--stagger': `${s.toFixed(fixed)}s` })
+
+/**
+ * 按列表下标设置错峰延迟，超过封顶下标后不再递增。
+ * 不封顶时第 20 项要等 1 秒，翻页后下半屏会长时间空白。
+ */
+export const getListStagger = (index: number) => getStagger(Math.min(index, STAGGER_MAX_INDEX) * STAGGER_STEP)

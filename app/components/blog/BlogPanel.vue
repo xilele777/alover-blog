@@ -42,7 +42,7 @@ const { asideWidgets, panelTransform } = storeToRefs(layoutStore)
 	backdrop-filter: blur(0.5rem);
 	font-size: 1.4rem;
 	transform: var(--transform);
-	transition: transform 0.1s;
+	transition: transform var(--dur-fast) var(--ease-out);
 	z-index: var(--z-index-popover);
 
 	@media (max-height: $breakpoint-phone) {
@@ -57,11 +57,13 @@ const { asideWidgets, panelTransform } = storeToRefs(layoutStore)
 button {
 	display: block;
 	padding: 0.5rem;
-	transition: all 0.2s;
+	transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 
-	&:hover {
-		background-color: var(--c-bg-a80);
-		color: var(--c-primary);
+	@media (hover: hover) {
+		&:hover {
+			background-color: var(--c-bg-a80);
+			color: var(--c-primary);
+		}
 	}
 
 	&.active {

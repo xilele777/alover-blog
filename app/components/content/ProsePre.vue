@@ -181,7 +181,7 @@ figcaption {
 		padding: 0 0.6em;
 		border-end-start-radius: 0.5em;
 		background-color: var(--c-bg-2);
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 
 		:hover > &, :focus-within > & {
 			opacity: 1;
@@ -190,7 +190,7 @@ figcaption {
 		> button {
 			opacity: 0.4;
 			padding: 0.2em 0.4em;
-			transition: opacity 0.2s;
+			transition: opacity var(--dur-instant) var(--ease-out);
 
 			&:hover {
 				opacity: 1;
@@ -251,7 +251,7 @@ pre {
 		display: inline-block;
 		position: relative;
 		box-shadow: 0 0 10rem 4rem var(--c-bg-2);
-		transition: box-shadow 0.2s;
+		transition: box-shadow var(--dur-fast) var(--ease-out);
 
 		@supports (color: color-mix(in srgb, transparent, transparent)) {
 			box-shadow: 0 0 0 100vmax color-mix(in srgb, transparent, var(--c-bg-2));
@@ -288,16 +288,18 @@ pre {
 	width: 100%;
 	padding: 0.2em;
 	background-color: var(--c-bg-3);
-	transition: opacity 0.2s;
+	transition: opacity var(--dur-instant) var(--ease-out);
 
-	&:hover {
-		opacity: 1;
+	@media (hover: hover) {
+		&:hover {
+			opacity: 1;
+		}
 	}
 }
 
 .toggle-icon {
 	margin-inline-end: 0.2em;
-	transition: all 0.2s;
+	transition: transform var(--dur-base) var(--ease-inout);
 
 	&.is-collapsed {
 		transform: rotate(180deg);

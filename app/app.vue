@@ -44,6 +44,18 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 	}
 }
 
+// 具名元素会被提取成独立图层并排除出 root 快照。两侧栏在前后页面同名，
+// 浏览器自动配对，位置不变即视觉静止；方向性位移只作用于留在 root 内的正文区。
+// 不给 #main-content 具名：root 快照是视口大小，具名元素的快照却是元素完整
+// 尺寸，长文章会生成超大纹理并可能超出 GPU 上限导致转场失败
+#blog-sidebar {
+	view-transition-name: vt-sidebar;
+}
+
+#blog-aside {
+	view-transition-name: vt-aside;
+}
+
 #content {
 	display: flex;
 	gap: 1rem;

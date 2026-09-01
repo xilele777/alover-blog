@@ -62,7 +62,7 @@ const [DefineTemplate, ReuseTemplate] = createReusableTemplate<{
 	display: flex;
 	align-items: center;
 	gap: 0.5em;
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 
 	&:not([href]) {
 		opacity: 0.4;
@@ -76,7 +76,7 @@ const [DefineTemplate, ReuseTemplate] = createReusableTemplate<{
 	}
 
 	> .surround-text {
-		transition: transform 0.2s;
+		transition: transform var(--dur-fast) var(--ease-out);
 
 		> .date {
 			display: block;
@@ -88,7 +88,7 @@ const [DefineTemplate, ReuseTemplate] = createReusableTemplate<{
 	> .iconify {
 		opacity: 0.5;
 		font-size: 2rem;
-		transition: transform 0.2s;
+		transition: transform var(--dur-fast) var(--ease-out);
 	}
 
 	&[href]:hover {

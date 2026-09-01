@@ -70,7 +70,7 @@ onUnmounted(() => {
 	border-radius: 0.5rem;
 	box-shadow: var(--box-shadow-1);
 	background-color: var(--ld-bg-card);
-	transition: max-width 0.2s var(--max-bezier-to-full);
+	transition: max-width var(--dur-base) var(--ease-out);
 	font-variant-numeric: tabular-nums;
 
 	&.sticky {
@@ -101,7 +101,7 @@ onUnmounted(() => {
 
 	> .pagination-num {
 		width: 3em;
-		transition: background-color 0.2s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 
 		&:hover { background-color: var(--c-border); }
 

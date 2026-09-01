@@ -80,11 +80,13 @@ const debounceSpring = useDebounceFn(spring, 500)
 		border-radius: 50%;
 		box-shadow: -100vw 0 0 calc(100vw - 0.6em) var(--c-primary);
 		background-color: var(--c-bg-1);
-		transition: all 0.2s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 		appearance: none;
 
-		:hover > & {
-			background-color: var(--c-bg-3);
+		@media (hover: hover) {
+			:hover > & {
+				background-color: var(--c-bg-3);
+			}
 		}
 	}
 }

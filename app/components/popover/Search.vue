@@ -142,6 +142,7 @@ function openActiveItem() {
 <style lang="scss" scoped>
 .blog-search {
 	--float-distance: 20vh;
+	--float-dur: var(--dur-slow); // 位移接近视口高度，用基础时长会显得抢
 
 	contain: paint;
 	position: fixed;
@@ -177,18 +178,16 @@ function openActiveItem() {
 	line-height: 5em;
 	text-align: center;
 	color: var(--c-text-3);
-	transition: all 0.5s;
 }
 
 .search-result {
 	max-height: 75vh;
 	max-height: 75dvh;
-	transition: all 0.5s;
 	scroll-padding: var(--fadeout-height);
 }
 
 .search-item {
-	transition: background-color 0.1s, opacity 0.2s;
+	transition: background-color var(--dur-instant) var(--ease-out), opacity var(--dur-instant) var(--ease-out);
 }
 
 .tip {
@@ -197,12 +196,16 @@ function openActiveItem() {
 	font-size: 0.8em;
 	text-align: center;
 	color: var(--c-text-3);
-	transition: all 0.5s;
 }
 
-.expand-enter-active,
+// 展开/收起全交给 expand 类：这三块的 max-height 平时是常量，
+// 之前挂在它们身上的 `transition: all` 只会让深浅色切换时跟着跑颜色动画
+.expand-enter-active {
+	transition: max-height var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+}
+
 .expand-leave-active {
-	transition: all 0.5s;
+	transition: max-height var(--dur-fast) var(--ease-in), opacity var(--dur-fast) var(--ease-in);
 }
 
 .expand-enter-from,

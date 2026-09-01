@@ -40,7 +40,7 @@ details {
 		margin: -0.5em -0.8em;
 		padding: 0.5em 0.8em;
 		color: var(--c-text-2);
-		transition: all 0.2s;
+		transition: color var(--dur-instant) var(--ease-out);
 		cursor: pointer;
 
 		> :deep(p) {
@@ -54,11 +54,13 @@ details {
 			opacity: 0.5;
 			margin-inline-start: 0.5em;
 			font-weight: normal;
-			transition: color 0.2s;
+			transition: color var(--dur-instant) var(--ease-out);
 		}
 
-		&:hover {
-			color: var(--c-text);
+		@media (hover: hover) {
+			&:hover {
+				color: var(--c-text);
+			}
 		}
 	}
 

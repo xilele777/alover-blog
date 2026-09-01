@@ -150,7 +150,9 @@ kbd {
 	font-size: 0.9em;
 	line-height: 1.4;
 	color: var(--c-text-2);
-	transition: all 0.1s;
+	transition-property: background-color, box-shadow, color, transform;
+	transition-duration: var(--dur-fast);
+	transition-timing-function: var(--ease-out);
 	user-select: none;
 
 	&:active, &.active {

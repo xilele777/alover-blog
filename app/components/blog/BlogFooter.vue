@@ -48,7 +48,7 @@ const appConfig = useAppConfig()
 			padding: 0.3em 0.5em;
 			border-radius: 0.5em;
 			font-size: 0.9em;
-			transition: background-color 0.2s, color 0.1s;
+			transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 
 			&:hover {
 				background-color: var(--c-bg-soft);

@@ -11,7 +11,10 @@
 .secret {
 	position: relative;
 	opacity: 0;
-	transition: all 0.2s var(--secret-delay, 0.5s), color 0.2s;
+
+	// 揭示刻意延迟，避免指针扫过就闪一下；color 不跟着延迟，否则深浅色切换时
+	// 这块文字要等半秒才换色
+	transition: opacity var(--dur-fast) var(--ease-out) var(--secret-delay, 0.5s), z-index var(--dur-fast) var(--secret-delay, 0.5s), color var(--dur-instant) var(--ease-out);
 	z-index: -1;
 
 	:hover > &,

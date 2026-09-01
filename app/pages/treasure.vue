@@ -55,7 +55,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 			target="_blank"
 			rel="noopener"
 			:title="`在外部网站查看：${item.title}`"
-			:style="getFixedDelay(index * 0.03)"
+			:style="getListStagger(index)"
 		>
 			<div class="poster-media">
 				<NuxtImg
@@ -114,8 +114,10 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	border-radius: 0.55em;
 	box-shadow: var(--box-shadow-2);
 	background: var(--c-bg-1);
-	transition: transform 0.2s ease, border-color 0.2s, box-shadow 0.2s;
-	animation: float-in 0.2s var(--delay) backwards;
+	transition-property: transform, border-color, box-shadow;
+	transition-duration: var(--dur-fast);
+	transition-timing-function: var(--ease-out);
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	&:hover {
 		border-color: var(--c-primary);
@@ -146,7 +148,9 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	display: block;
 	width: 100%;
 	aspect-ratio: 4 / 5;
-	transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+	// 图片缩放比卡片抬升慢一档，两者错开才有层次
+	transition: transform var(--dur-base) var(--ease-out);
 	object-fit: cover;
 }
 
@@ -162,7 +166,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	background: linear-gradient(transparent 0%, rgb(0 0 0 / 86%) 58%, rgb(0 0 0 / 96%) 100%);
 	color: white;
 	transform: translateY(12%);
-	transition: opacity 0.25s ease, transform 0.3s ease;
+	transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 
 .poster-body {
@@ -190,7 +194,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	font-size: 0.76rem;
 	line-height: 1.45;
 	color: rgb(255 255 255 / 82%);
-	transition: opacity 0.2s ease;
+	transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .type-pill {

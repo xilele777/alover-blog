@@ -55,7 +55,7 @@ const totalWords = computed(() => issues.value
 			:key="issue.path"
 			class="weekly-item"
 			:class="{ 'is-latest': !index }"
-			:style="getFixedDelay(index * 0.05)"
+			:style="getListStagger(index)"
 		>
 			<div class="gradient-card">
 				<UtilLink
@@ -121,7 +121,7 @@ const totalWords = computed(() => issues.value
 	background-color: var(--c-bg-soft);
 	font-size: 0.9em;
 	color: var(--c-text-2);
-	transition: color 0.2s, background-color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out), background-color var(--dur-instant) var(--ease-out);
 
 	&:hover {
 		background-color: var(--c-primary-soft);
@@ -154,7 +154,7 @@ const totalWords = computed(() => issues.value
 	position: relative;
 	margin: 0.5em 0;
 	padding-inline-start: var(--axis-width);
-	animation: float-in 0.2s var(--delay) backwards;
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	// 节点：用与背景同色的描边把轴线切断，形成缝隙
 	&::before {
@@ -168,7 +168,7 @@ const totalWords = computed(() => issues.value
 		box-shadow: 0 0 0 3px var(--c-bg);
 		background-color: var(--c-border);
 		transform: translateY(-50%);
-		transition: background-color 0.2s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 	}
 
 	&.is-latest::before,
@@ -179,7 +179,7 @@ const totalWords = computed(() => issues.value
 	// 次要信息默认淡出，hover 时补齐，与归档页的行为保持一致
 	.dim-hover {
 		opacity: 0.4;
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 	}
 
 	&:hover .dim-hover,
@@ -205,7 +205,7 @@ const totalWords = computed(() => issues.value
 
 .item-title {
 	font-weight: 600;
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 
 	.is-latest & {
 		color: var(--c-primary);

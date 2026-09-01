@@ -76,10 +76,12 @@ function hasHeading(tocTree: TocLink, heading?: string): boolean {
 		opacity: 0.6;
 		font-size: 0.94em;
 		color: var(--c-text);
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 
-		&:hover {
-			opacity: 0.94;
+		@media (hover: hover) {
+			&:hover {
+				opacity: 0.94;
+			}
 		}
 
 		&.has-active, &.active {
@@ -104,10 +106,12 @@ function hasHeading(tocTree: TocLink, heading?: string): boolean {
 			border-radius: 0.5em;
 			white-space: nowrap;
 			text-overflow: ellipsis;
-			transition: all 0.2s;
+			transition: background-color var(--dur-instant) var(--ease-out);
 
-			&:hover {
-				background-color: var(--c-bg-soft);
+			@media (hover: hover) {
+				&:hover {
+					background-color: var(--c-bg-soft);
+				}
 			}
 		}
 	}

@@ -37,12 +37,14 @@
 		border-radius: 0.3em;
 		text-align: start;
 		color: var(--c-text-1);
-		transition: color 0.1s, background-color 0.2s;
+		transition: color var(--dur-instant) var(--ease-out), background-color var(--dur-instant) var(--ease-out);
 		cursor: pointer;
 
-		&:hover {
-			background-color: var(--c-bg-soft);
-			color: var(--c-text-1);
+		@media (hover: hover) {
+			&:hover {
+				background-color: var(--c-bg-soft);
+				color: var(--c-text-1);
+			}
 		}
 
 		&.active {

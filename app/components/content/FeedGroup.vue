@@ -49,7 +49,7 @@ if (import.meta.dev) {
 		<li
 			v-for="entry in entries"
 			:key="entry.link"
-			:style="`--delay: ${getCardDelay(entry)}s;`"
+			:style="getStagger(getCardDelay(entry))"
 		>
 			<FeedCard v-bind="entry" />
 		</li>
@@ -76,7 +76,7 @@ if (import.meta.dev) {
 	line-height: 1;
 	text-align: center;
 	color: transparent;
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 	-webkit-text-stroke: 1px var(--c-text-3);
 
 	&::selection, :hover > & {

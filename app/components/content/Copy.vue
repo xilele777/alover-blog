@@ -86,7 +86,7 @@ onMounted(async () => {
 	background-color: var(--ld-bg-card);
 	font-size: 0.8rem;
 	line-height: 2.5;
-	transition: border-color 0.2s;
+	transition: border-color var(--dur-instant) var(--ease-out);
 
 	&:focus-within {
 		border-color: var(--c-primary);
@@ -105,7 +105,9 @@ onMounted(async () => {
 		border-inline-end: 1px solid var(--c-border);
 		background-color: var(--c-bg-2);
 		color: var(--c-text-2);
-		transition: all 0.2s;
+		transition-property: background-color, border-color, color;
+		transition-duration: var(--dur-instant);
+		transition-timing-function: var(--ease-out);
 	}
 
 	.code {
@@ -132,7 +134,7 @@ onMounted(async () => {
 		margin-inline-start: -0.5em;
 		padding: 0.5em;
 		color: var(--c-text-2);
-		transition: color, 0.2s;
+		transition: color var(--dur-instant) var(--ease-out);
 
 		&:hover {
 			color: var(--c-primary);

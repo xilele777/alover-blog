@@ -101,7 +101,7 @@ const { copy, copied } = useCopy(shareText)
 		min-height: 16rem;
 		max-height: 20rem;
 		color: white;
-		transition: font-size 0.2s;
+		transition: font-size var(--dur-base) var(--ease-out);
 
 		.post-info {
 			filter: drop-shadow(0 1px 2px #000);
@@ -123,7 +123,7 @@ const { copy, copied } = useCopy(shareText)
 	opacity: 0;
 	inset-inline-end: 1em;
 	color: var(--c-text-1);
-	transition: opacity 0.2s;
+	transition: opacity var(--dur-instant) var(--ease-out);
 	z-index: 1;
 }
 
@@ -142,6 +142,9 @@ const { copy, copied } = useCopy(shareText)
 	padding: 0.8em 1rem;
 	font-size: 1.6em;
 	line-height: 1.2;
+
+	// 与列表卡片的 <h2> 配对做共享元素变形。同时只挂载一个文章页，不存在重名
+	view-transition-name: vt-post-title;
 	z-index: 1;
 }
 

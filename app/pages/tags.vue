@@ -126,7 +126,7 @@ function getTagScale(tag: TagGroup) {
 					v-for="article, index in listFiltered"
 					:key="article.path"
 					class="tag-article-item"
-					:style="getFixedDelay(index * 0.04)"
+					:style="getListStagger(index)"
 				>
 					<UtilDate class="article-date" :date="article.date" format="monthDay" />
 
@@ -202,7 +202,9 @@ function getTagScale(tag: TagGroup) {
 	font-size: var(--tag-size);
 	line-height: 1;
 	color: var(--c-text);
-	transition: color 0.2s, transform 0.2s, background-color 0.2s;
+	transition-property: color, transform, background-color;
+	transition-duration: var(--dur-fast);
+	transition-timing-function: var(--ease-out);
 
 	> .tag-name {
 		overflow: hidden;
@@ -279,7 +281,9 @@ function getTagScale(tag: TagGroup) {
 	background: var(--c-bg-soft);
 	font-size: 1rem;
 	color: var(--c-text-2);
-	transition: color 0.2s, transform 0.2s, background-color 0.2s;
+	transition-property: color, transform, background-color;
+	transition-duration: var(--dur-fast);
+	transition-timing-function: var(--ease-out);
 
 	&:hover {
 		background: var(--c-primary-soft);
@@ -301,7 +305,7 @@ function getTagScale(tag: TagGroup) {
 	align-items: baseline;
 	gap: 1rem;
 	font-size: 0.98rem;
-	animation: float-in 0.2s var(--delay) backwards;
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	@media (max-width: $breakpoint-phone) {
 		grid-template-columns: 3.6rem minmax(0, 1fr);
@@ -320,7 +324,7 @@ function getTagScale(tag: TagGroup) {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	color: var(--c-text);
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 
 	&:hover {
 		color: var(--c-primary);
@@ -337,7 +341,7 @@ function getTagScale(tag: TagGroup) {
 	color: var(--c-text-3);
 
 	button {
-		transition: color 0.2s;
+		transition: color var(--dur-instant) var(--ease-out);
 
 		&:hover {
 			color: var(--c-primary);

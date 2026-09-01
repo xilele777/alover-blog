@@ -80,7 +80,7 @@ function levelClass(level: string) {
 	aspect-ratio: 1;
 	border-radius: 2px;
 	background-color: var(--c-bg-3);
-	transition: transform 0.15s, box-shadow 0.15s;
+	transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 	cursor: default;
 
 	&:hover {

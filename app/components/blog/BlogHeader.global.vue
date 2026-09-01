@@ -14,7 +14,7 @@ const appConfig = useAppConfig()
 			v-for="(emoji, emojiIndex) in appConfig.header.emojiTail"
 			:key="emojiIndex"
 			class="split-char"
-			:style="getFixedDelay(emojiIndex * .6 - 3)"
+			:style="getStagger(emojiIndex * .6 - 3)"
 			v-text="emoji"
 		/>
 	</div>
@@ -32,7 +32,7 @@ const appConfig = useAppConfig()
 				v-for="(char, charIndex) in appConfig.title"
 				:key="charIndex"
 				class="split-char"
-				:style="getFixedDelay((charIndex + 1) * .1)"
+				:style="getStagger((charIndex + 1) * .1)"
 				v-text="char"
 			/>
 		</component>
@@ -80,7 +80,7 @@ const appConfig = useAppConfig()
 
 	> .split-char {
 		animation: 3.14s infinite alternate vf-weight, 2.72s infinite alternate vf-bevel;
-		animation-delay: var(--delay);
+		animation-delay: var(--stagger);
 		animation-play-state: paused;
 	}
 }
@@ -117,7 +117,7 @@ const appConfig = useAppConfig()
 
 	> .split-char {
 		animation: 5s infinite alternate emoji-floating;
-		animation-delay: var(--delay);
+		animation-delay: var(--stagger);
 		animation-play-state: paused;
 	}
 }

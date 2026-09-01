@@ -128,7 +128,7 @@ const filteredRepos = computed(() => {
 				:href="repo.html_url"
 				target="_blank"
 				rel="noopener"
-				:style="[getFixedDelay(index * 0.04), { '--lang-color': getLanguageColor(repo.language) }]"
+				:style="[getListStagger(index), { '--lang-color': getLanguageColor(repo.language) }]"
 			>
 				<div class="repo-header">
 					<span class="lang-dot" :style="{ backgroundColor: getLanguageColor(repo.language) }" />
@@ -192,7 +192,7 @@ const filteredRepos = computed(() => {
 	background-color: var(--c-bg-soft);
 	font-size: 0.9em;
 	color: var(--c-text-2);
-	transition: color 0.2s, background-color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out), background-color var(--dur-instant) var(--ease-out);
 
 	&:hover {
 		background-color: var(--c-primary-soft);
@@ -219,8 +219,8 @@ const filteredRepos = computed(() => {
 	border-radius: 0.75em;
 	box-shadow: var(--box-shadow-2);
 	background-color: var(--ld-bg-card);
-	transition: transform 0.2s, box-shadow 0.2s;
-	animation: float-in 0.2s var(--delay) backwards;
+	transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	&:hover {
 		box-shadow: inset 3px 0 0 var(--lang-color), var(--box-shadow-3);

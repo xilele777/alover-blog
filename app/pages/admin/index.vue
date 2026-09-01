@@ -9,6 +9,9 @@ import {
 } from '~/utils/treasure-doc'
 import blogConfig from '../../../blog.config'
 
+// 全屏后台布局与博客正文结构差异过大，整页位移转场在此处只会显得混乱
+definePageMeta({ viewTransition: false })
+
 interface GithubSettings {
 	owner: string
 	repo: string

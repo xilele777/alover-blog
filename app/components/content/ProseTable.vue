@@ -39,7 +39,7 @@ const scroll = ref(true)
 	top: 0;
 	height: 0;
 	text-align: end;
-	transition: opacity 0.2s;
+	transition: opacity var(--dur-instant) var(--ease-out);
 	z-index: 1;
 
 	.tooltip {
@@ -73,7 +73,7 @@ const scroll = ref(true)
 	}
 
 	tr {
-		transition: background-color 0.2s;
+		transition: background-color var(--dur-instant) var(--ease-out);
 
 		&:hover {
 			background-color: var(--c-bg-2);

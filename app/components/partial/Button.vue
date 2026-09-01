@@ -33,7 +33,7 @@ defineProps<ButtonProps>()
 	background-color: var(--ld-bg-card);
 	line-height: 1.2;
 	vertical-align: middle;
-	transition: color 0.1s, background-color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out), background-color var(--dur-instant) var(--ease-out);
 	cursor: pointer;
 
 	&.primary {

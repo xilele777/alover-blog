@@ -16,7 +16,7 @@
 		opacity: 0;
 		font-size: 0.8em;
 		transform: translate(-0.9em, 0.3em);
-		transition: opacity 0.2s;
+		transition: opacity var(--dur-instant) var(--ease-out);
 	}
 
 	&:hover::before {

@@ -68,12 +68,17 @@ const debouncedSelection = refDebounced(text)
 		backdrop-filter: blur(0.5rem);
 		color: currentcolor;
 		transform: var(--transform-start-far);
-		transition: transform 0.2s;
+
+		// 开慢关快：浏览器取「目标态」的 transition，所以进场时长写在 .show 上，
+		// 这里的短时长只在移除 .show（收起）时生效
+		transition: transform var(--dur-fast) var(--ease-in);
 		z-index: var(--z-index-popover);
 
 		&.show {
 			box-shadow: var(--box-shadow-1), var(--box-shadow-3);
 			transform: none;
+			transition-duration: var(--dur-slow);
+			transition-timing-function: var(--ease-out);
 		}
 	}
 }
@@ -82,6 +87,11 @@ const debouncedSelection = refDebounced(text)
 	flex-grow: 1;
 	padding: 0 5%;
 	font-size: 0.9em;
+
+	// 抽屉态下滑到头不要把身后的正文一起带着滚
+	@media (max-width: $breakpoint-mobile) {
+		overscroll-behavior: contain;
+	}
 
 	h3 {
 		margin: 2em 0 1em 1em;
@@ -100,7 +110,7 @@ const debouncedSelection = refDebounced(text)
 	gap: 0.5em;
 	padding: 0.5em 1em;
 	border-radius: 0.5em;
-	transition: all 0.2s;
+	transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 
 	&:hover,
 	&.router-link-active {

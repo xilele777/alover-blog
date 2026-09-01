@@ -42,7 +42,7 @@ const expand = defineModel<boolean>()
 }
 
 .toggle-icon {
-	transition: transform 0.2s;
+	transition: transform var(--dur-base) var(--ease-inout);
 
 	&.expand {
 		transform: scaleY(-1);

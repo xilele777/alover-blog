@@ -12,7 +12,7 @@ defineProps<{
 
 <style lang="scss" scoped>
 .blur {
-	transition: filter 0.2s;
+	transition: filter var(--dur-fast) var(--ease-out);
 	filter: blur(4px);
 
 	&:hover {

@@ -52,7 +52,7 @@ const tip = computed(() => {
 	box-sizing: content-box;
 	background-color: var(--c-bg-2);
 	font-size: 0.875em;
-	transition: color 0.2s;
+	transition: color var(--dur-instant) var(--ease-out);
 
 	@supports (color: color-mix(in srgb, transparent, transparent)) {
 		border-color: color-mix(in srgb, currentcolor 10%, transparent);
