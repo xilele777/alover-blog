@@ -117,7 +117,7 @@ const items = computed(() => categories.flatMap(category => category.items.map(i
 	transition-property: transform, border-color, box-shadow;
 	transition-duration: var(--dur-fast);
 	transition-timing-function: var(--ease-out);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	&:hover {
 		border-color: var(--c-primary);

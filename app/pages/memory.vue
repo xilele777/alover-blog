@@ -124,7 +124,7 @@ const memories = computed(() => {
 	gap: 0.7rem;
 	padding: 0.8rem 0;
 	border-bottom: 1px solid var(--c-border);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 }
 
 .memory-avatar {

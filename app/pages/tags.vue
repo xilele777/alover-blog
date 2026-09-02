@@ -305,7 +305,7 @@ function getTagScale(tag: TagGroup) {
 	align-items: baseline;
 	gap: 1rem;
 	font-size: 0.98rem;
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	@media (max-width: $breakpoint-phone) {
 		grid-template-columns: 3.6rem minmax(0, 1fr);

@@ -101,7 +101,7 @@ function getInspectStyle(src: string): CSSProperties {
 	padding: 0.5em;
 	line-height: 1.4;
 	transition: transform var(--dur-fast) var(--ease-out);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	&:hover {
 		transform: translateY(-2px);

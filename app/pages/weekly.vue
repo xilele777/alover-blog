@@ -154,7 +154,7 @@ const totalWords = computed(() => issues.value
 	position: relative;
 	margin: 0.5em 0;
 	padding-inline-start: var(--axis-width);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	// 节点：用与背景同色的描边把轴线切断，形成缝隙
 	&::before {

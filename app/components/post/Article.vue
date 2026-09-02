@@ -63,7 +63,7 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 	margin: 1em 0;
 	border-radius: 0.8em;
 	color: var(--c-text);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	> article {
 		display: grid;

@@ -47,7 +47,7 @@ const mainDate = computed(() => props.useUpdated ? props.updated : props.date)
 	column-gap: 0.5em;
 	min-width: 0;
 	margin: var(--archive-item-gap, 0.2em) 0;
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	@media (max-width: $breakpoint-mobile) {
 		font-size: 0.9em;

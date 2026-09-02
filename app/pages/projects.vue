@@ -220,7 +220,7 @@ const filteredRepos = computed(() => {
 	box-shadow: var(--box-shadow-2);
 	background-color: var(--ld-bg-card);
 	transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-	animation: var(--anim-float-in) var(--dur-base) var(--ease-out) var(--stagger) backwards;
+	animation: float-in var(--dur-base) var(--ease-out) var(--stagger) backwards;
 
 	&:hover {
 		box-shadow: inset 3px 0 0 var(--lang-color), var(--box-shadow-3);

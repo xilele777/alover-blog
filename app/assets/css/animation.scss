@@ -6,32 +6,30 @@
 	--dur-base: 240ms; // 中等位移：下拉、折叠、目录
 	--dur-slow: 320ms; // 大位移：页面转场、侧栏、弹层
 
-	// 缓动一律非对称（快出慢收），CSS 默认的 ease 接近对称，观感等同匀速
-	--ease-out: cubic-bezier(0.22, 1, 0.36, 1); // 默认：入场与响应
+	// 缓动一律非对称（快出慢收），CSS 默认的 ease 接近对称，观感等同匀速。
+	// 但也不能太前载：easeOutQuint 在 240ms 里约 80ms 就走完九成位移，
+	// 剩下的时间几乎不动，观感是「跳出来后卡住」而非一段连续的运动。
+	// 此处用 easeOutCubic，仍是快出慢收，但尾段肉眼可见
+	--ease-out: cubic-bezier(0.33, 1, 0.68, 1); // 默认：入场与响应
 	--ease-in: cubic-bezier(0.64, 0, 0.78, 0); // 离场：收得干脆
 	--ease-inout: cubic-bezier(0.65, 0, 0.35, 1); // 双向位移
 
 	// 列表错峰延迟，由 getStagger / getListStagger 逐项覆盖
 	--stagger: 0s;
 
-	// float-in 的动画名，供返程整体关闭（见下方 data-nav 分支）
-	--anim-float-in: float-in;
+	// float-in 的默认位移。8px 在 240ms 里只够两三帧的可见行程，
+	// 读作「一下子跳出来」；改前的实现用的是 10%，此处取一个折中的固定值
+	--float-distance: 16px;
 
 	// 兼容旧名：collapse 动画仍在引用
 	--max-bezier-to-full: var(--ease-out);
 	--max-bezier-to-collapse: var(--ease-in);
 }
 
-// 返程不重放入场动画：整页转场已经在动，卡片再逐个浮入是多余的第二段运动；
-// 而且「后退」重播进场动画会让人误以为页面是重新加载的
-html[data-nav="back"] {
-	--anim-float-in: none;
-}
-
 @keyframes float-in {
 	0% {
 		opacity: 0;
-		transform: translateY(var(--float-distance, 8px));
+		transform: translateY(var(--float-distance));
 	}
 
 	100% {
@@ -72,7 +70,7 @@ html[data-nav="back"] {
 .float-in-enter-from,
 .float-in-leave-to {
 	opacity: 0;
-	transform: translateY(var(--float-distance, 8px));
+	transform: translateY(var(--float-distance));
 }
 
 .float-in-move {
@@ -97,8 +95,9 @@ html[data-nav="back"] {
 	transition-timing-function: var(--max-bezier-to-full);
 }
 
-// 页面转场：侧栏与右栏各自具名，会被提取成独立图层并排除出 root 快照，
-// 因此位置不变即视觉静止，只有正文区（留在 root 内）做方向性位移。
+// 页面转场只在同层级导航之间发生（见 plugins/page-transition.client.ts），
+// 两端结构相近，交叉淡入即可，不做方向性位移——位移会暗示层级关系。
+// 侧栏与右栏各自具名，会被提取成独立图层并排除出 root 快照，位置不变即视觉静止。
 // 不给 #main-content 具名：root 快照是视口大小，而具名元素的快照是元素
 // 完整尺寸，长文章会生成超大纹理并可能超出 GPU 上限导致转场失败
 @keyframes vt-fade-out {
@@ -109,72 +108,12 @@ html[data-nav="back"] {
 	from { opacity: 0; }
 }
 
-@keyframes vt-exit-to-start {
-	to {
-		opacity: 0;
-		transform: translateX(-24px);
-	}
-}
-
-@keyframes vt-enter-from-end {
-	from {
-		opacity: 0;
-		transform: translateX(24px);
-	}
-}
-
-@keyframes vt-exit-to-end {
-	to {
-		opacity: 0;
-		transform: translateX(24px);
-	}
-}
-
-@keyframes vt-enter-from-start {
-	from {
-		opacity: 0;
-		transform: translateX(-24px);
-	}
-}
-
-// 位移用固定 px 而非百分比：百分比在宽屏上会变成巨大位移
 ::view-transition-old(root) {
 	animation: vt-fade-out var(--dur-slow) var(--ease-in) both;
 }
 
 ::view-transition-new(root) {
 	animation: vt-fade-in var(--dur-slow) var(--ease-out) both;
-}
-
-html[data-nav="forward"] {
-	&::view-transition-old(root) {
-		animation-name: vt-exit-to-start;
-	}
-
-	&::view-transition-new(root) {
-		animation-name: vt-enter-from-end;
-	}
-}
-
-html[data-nav="back"] {
-	&::view-transition-old(root) {
-		animation-name: vt-exit-to-end;
-	}
-
-	&::view-transition-new(root) {
-		animation-name: vt-enter-from-start;
-	}
-}
-
-// 同层级跳转（如首页↔归档）只做交叉淡入，不位移——位移会暗示层级关系
-html[data-nav="flat"] {
-	&::view-transition-old(root) {
-		animation-name: vt-fade-out;
-	}
-
-	&::view-transition-new(root) {
-		animation-name: vt-fade-in;
-	}
 }
 
 // 侧栏在两个页面同名并自动配对，位置不变；此处只压掉默认的交叉淡入，
