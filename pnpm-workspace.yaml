@@ -87,3 +87,4 @@ patchedDependencies:
 shamefullyHoist: true
 catalog:
   '@iconify-json/line-md': ^1.2.16
+  yaml: ^2.9.0

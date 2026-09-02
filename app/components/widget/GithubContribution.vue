@@ -91,17 +91,32 @@ function levelClass(level: string) {
 	}
 }
 
-// GitHub 绿，浅色主题
-.lv-first-quartile { background-color: #9BE9A8; }
-.lv-second-quartile { background-color: #40C463; }
-.lv-third-quartile { background-color: #30A14E; }
-.lv-fourth-quartile { background-color: #216E39; }
+// GitHub 绿，深色主题下加深。
+// 此处不能写 `:global(.dark) { .lv-x {} }`：scoped 编译会把 :global() 之后的
+// 后代部分整段丢掉，只剩下 `.dark`，等于给挂着该类的 <html> 直接刷上背景色。
+// 不加 :global 的 `.dark &` 才正确——scoped 属性只落在最后一段选择器上，
+// 祖先的 .dark 本就无需作用域化
+.lv-first-quartile {
+	background-color: #9BE9A8;
 
-// 深色主题加深
-:global(.dark) {
-	.lv-first-quartile { background-color: #0E4429; }
-	.lv-second-quartile { background-color: #006D32; }
-	.lv-third-quartile { background-color: #26A641; }
-	.lv-fourth-quartile { background-color: #39D353; }
+	.dark & { background-color: #0E4429; }
+}
+
+.lv-second-quartile {
+	background-color: #40C463;
+
+	.dark & { background-color: #006D32; }
+}
+
+.lv-third-quartile {
+	background-color: #30A14E;
+
+	.dark & { background-color: #26A641; }
+}
+
+.lv-fourth-quartile {
+	background-color: #216E39;
+
+	.dark & { background-color: #39D353; }
 }
 </style>
