@@ -36,14 +36,21 @@ export default defineNuxtConfig({
 				// 性能优化：DNS 预解析和预连接
 				{ rel: 'dns-prefetch', href: 'https://lib.baomitu.com' },
 				{ rel: 'dns-prefetch', href: 'https://rsms.me' },
+				{ rel: 'dns-prefetch', href: 'https://fonts.googleapis.cn' },
+				{ rel: 'dns-prefetch', href: 'https://fonts.gstatic.cn' },
 				{ rel: 'dns-prefetch', href: 'https://cloud.umami.is' },
+				{ rel: 'preconnect', href: 'https://fonts.gstatic.cn', crossorigin: '' },
 				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
 				// 性能优化：预加载关键字体 CSS（提高首屏渲染速度）
 				{ rel: 'preload', href: 'https://rsms.me/inter/inter.css', as: 'style' },
+				// 性能优化：预加载关键字体文件
+				{ rel: 'preload', href: 'https://fonts.gstatic.cn/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeALhL4iJ-Q7m8A.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
 				// 使用 media="print" + onload 异步加载字体和样式
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay" - 关键字体，添加 font-display=swap 优化
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css?display=swap', media: 'print', onload: 'this.media="all"' },
+				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC" - 减少字重范围优化性能
+				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;700&display=swap', media: 'print', onload: 'this.media="all"' },
 			],
 			templateParams: {
 				separator: '|',

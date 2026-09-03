@@ -1,14 +1,29 @@
 :root {
-	--font-basic: "InterVariable", "Inter", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-	--font-serif: system-ui, "Georgia", serif;
-	--font-creative: "InterVariable", "Inter", system-ui, sans-serif;
-	--font-stroke-free: "Inter", system-ui, "Microsoft YaHei", sans-serif;
-	--font-monospace: "Cascadia Code", "Consolas", "Monaco", "Courier New", monospace;
+	--font-basic: "InterVariable", "Noto Sans SC-Local", "sans-serif", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+	--font-serif: "Noto Serif SC-Local", "Noto Serif SC", serif;
+	--font-creative: "InterVariable", "Noto Sans SC-Local", "Noto Sans SC", system-ui, sans-serif;
+	--font-stroke-free: "Inter", "Lantinghei SC", "Microsoft YaHei", system-ui, sans-serif;
+	--font-monospace: "JetBrains Mono", "monospace", "Cascadia Code", "Consolas", "Monaco", var(--font-basic), monospace;
 
 	@media (max-resolution: 1.2dppx) {
-		--font-basic: "InterVariable", "Inter", system-ui, sans-serif;
+		--font-basic: "InterVariable", system-ui, sans-serif;
 	}
 }
 
-/* 性能优化：移除了未使用的外部中文字体（Google Fonts 和 MiSans），使用系统字体减少加载时间 */
-/* 本地字体备选已移除，直接使用 Inter + 系统字体 */
+/* autoprefixer: ignore next */
+// 仅在 Chrome 130+ 启用本地可变字体
+@supports (box-decoration-break: clone) {
+	@font-face {
+		font-family: "Noto Sans SC-Local";
+		font-weight: 100 900; // 不指定则为 400
+		font-display: swap; // 性能优化：使用系统字体显示文字，字体加载完成后替换
+		src: local("Noto Sans SC");
+	}
+
+	@font-face {
+		font-family: "Noto Serif SC-Local";
+		font-weight: 100 900;
+		font-display: swap; // 性能优化：使用系统字体显示文字，字体加载完成后替换
+		src: local("Noto Serif SC");
+	}
+}
