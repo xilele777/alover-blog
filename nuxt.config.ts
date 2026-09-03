@@ -42,10 +42,12 @@ export default defineNuxtConfig({
 				{ rel: 'dns-prefetch', href: 'https://cloud.umami.is' },
 				{ rel: 'preconnect', href: 'https://fonts.gstatic.cn', crossorigin: '' },
 				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
+				// 性能优化：预加载关键字体 CSS（提高首屏渲染速度）
+				{ rel: 'preload', href: 'https://rsms.me/inter/inter.css', as: 'style' },
 				// 使用 media="print" + onload 异步加载字体和样式
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
-				// "InterVariable", "Inter", "InterDisplay"
-				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css', media: 'print', onload: 'this.media="all"' },
+				// "InterVariable", "Inter", "InterDisplay" - 关键字体，添加 font-display=swap 优化
+				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css?display=swap', media: 'print', onload: 'this.media="all"' },
 				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC"
 				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Noto+Sans+SC:wght@100..900&family=Noto+Serif+SC:wght@200..900&display=swap', media: 'print', onload: 'this.media="all"' },
 				// 小米字体 "MiSans"
