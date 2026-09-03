@@ -43,14 +43,14 @@ export default defineNuxtConfig({
 				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
 				// 性能优化：预加载关键字体 CSS（提高首屏渲染速度）
 				{ rel: 'preload', href: 'https://rsms.me/inter/inter.css', as: 'style' },
-				// 性能优化：预加载关键字体文件
+				// 性能优化：预加载关键字体文件（Noto Sans SC Regular）
 				{ rel: 'preload', href: 'https://fonts.gstatic.cn/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeALhL4iJ-Q7m8A.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
 				// 使用 media="print" + onload 异步加载字体和样式
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay" - 关键字体，添加 font-display=swap 优化
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css?display=swap', media: 'print', onload: 'this.media="all"' },
-				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC" - 减少字重范围优化性能
-				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;700&display=swap', media: 'print', onload: 'this.media="all"' },
+				// 思源黑体 "Noto Sans SC" - 仅保留常用字重 400/700，使用 optional 加快渲染
+				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=Noto+Sans+SC:wght@400;700&display=optional', media: 'print', onload: 'this.media="all"' },
 			],
 			templateParams: {
 				separator: '|',
@@ -153,6 +153,9 @@ export default defineNuxtConfig({
 			// 小于此值的阈值可避免对已拆分资源重复输出构建告警。
 			chunkSizeWarningLimit: 750,
 			sourcemap: false,
+			// 性能优化：启用压缩
+			minify: 'esbuild',
+			cssMinify: true,
 			// 性能优化：代码分割策略
 			rollupOptions: {
 				output: {

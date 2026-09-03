@@ -1,9 +1,9 @@
 :root {
 	--font-basic: "InterVariable", "Noto Sans SC-Local", "sans-serif", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
-	--font-serif: "Noto Serif SC-Local", "Noto Serif SC", serif;
+	--font-serif: "Noto Serif SC-Local", Georgia, "STSong", "SimSun", serif;
 	--font-creative: "InterVariable", "Noto Sans SC-Local", "Noto Sans SC", system-ui, sans-serif;
 	--font-stroke-free: "Inter", "Lantinghei SC", "Microsoft YaHei", system-ui, sans-serif;
-	--font-monospace: "JetBrains Mono", "monospace", "Cascadia Code", "Consolas", "Monaco", var(--font-basic), monospace;
+	--font-monospace: "Cascadia Code", "Consolas", "Monaco", "Courier New", monospace;
 
 	@media (max-resolution: 1.2dppx) {
 		--font-basic: "InterVariable", system-ui, sans-serif;
@@ -18,12 +18,5 @@
 		font-weight: 100 900; // 不指定则为 400
 		font-display: swap; // 性能优化：使用系统字体显示文字，字体加载完成后替换
 		src: local("Noto Sans SC");
-	}
-
-	@font-face {
-		font-family: "Noto Serif SC-Local";
-		font-weight: 100 900;
-		font-display: swap; // 性能优化：使用系统字体显示文字，字体加载完成后替换
-		src: local("Noto Serif SC");
 	}
 }
