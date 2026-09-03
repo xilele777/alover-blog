@@ -30,11 +30,22 @@ export default defineNuxtConfig({
 				{ rel: 'icon', type: 'image/svg+xml', href: blogConfig.favicon },
 				{ rel: 'preconnect', href: blogConfig.twikoo?.preload },
 				{ rel: 'shortcut icon', href: blogConfig.favicon },
+				{ rel: 'canonical', href: blogConfig.url },
+				{ rel: 'manifest', href: '/manifest.json' },
+				// 性能优化：DNS 预解析和预连接
+				{ rel: 'dns-prefetch', href: 'https://lib.baomitu.com' },
+				{ rel: 'dns-prefetch', href: 'https://rsms.me' },
+				{ rel: 'dns-prefetch', href: 'https://fonts.googleapis.cn' },
+				{ rel: 'dns-prefetch', href: 'https://fonts.gstatic.cn' },
+				{ rel: 'dns-prefetch', href: 'https://cdn-font.hyperos.mi.com' },
+				{ rel: 'dns-prefetch', href: 'https://cloud.umami.is' },
+				{ rel: 'preconnect', href: 'https://fonts.gstatic.cn', crossorigin: '' },
+				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
+				// 使用 media="print" + onload 异步加载字体和样式
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay"
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css', media: 'print', onload: 'this.media="all"' },
 				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC"
-				{ rel: 'preconnect', href: 'https://fonts.gstatic.cn', crossorigin: '' },
 				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Noto+Sans+SC:wght@100..900&family=Noto+Serif+SC:wght@200..900&display=swap', media: 'print', onload: 'this.media="all"' },
 				// 小米字体 "MiSans"
 				{ rel: 'stylesheet', href: 'https://cdn-font.hyperos.mi.com/font/css?family=MiSans:100,200,300,400,450,500,600,650,700,900:Chinese_Simplify,Latin&display=swap', media: 'print', onload: 'this.media="all"' },
@@ -84,7 +95,15 @@ export default defineNuxtConfig({
 			// 修复部分平台会在文章路径后添加 `/`，导致闪现 404 错误
 			// https://github.com/nuxt/content/issues/2378
 			autoSubfolderIndex: CLOUDFLARE_PAGES || GITHUB_ACTIONS || NETLIFY ? false : undefined,
+			crawlLinks: true,
+			// 预渲染重要页面
+			routes: ['/'],
 		},
+		compressPublicAssets: {
+			gzip: true,
+			brotli: true,
+		},
+		minify: true,
 	},
 
 	// @keep-sorted
@@ -126,6 +145,15 @@ export default defineNuxtConfig({
 			// 小于此值的阈值可避免对已拆分资源重复输出构建告警。
 			chunkSizeWarningLimit: 750,
 			sourcemap: false,
+			// 启用代码分割优化
+			rollupOptions: {
+				output: {
+					manualChunks: {
+						'vue-vendor': ['vue', 'vue-router'],
+						'nuxt-vendor': ['@nuxt/content', '@vueuse/core'],
+					},
+				},
+			},
 		},
 		css: {
 			preprocessorOptions: {

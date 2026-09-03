@@ -1,0 +1,25 @@
+{
+  "name": "小锅巴的博客",
+  "short_name": "小锅巴",
+  "description": "记录学习与生活的个人博客，分享技术文章、音乐欣赏、生活感悟",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B6DFF",
+  "icons": [
+    {
+      "src": "/avatar.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Gemini_Generated_Image_tj06xutj06xutj06.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["education", "lifestyle", "music"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}

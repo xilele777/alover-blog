@@ -34,5 +34,7 @@ const src = computed(() => {
 	:src :alt :width :height :densities
 	:style="{ filter }"
 	:referrerpolicy="mirror ? 'no-referrer' : undefined"
+	loading="lazy"
+	decoding="async"
 />
 </template>
