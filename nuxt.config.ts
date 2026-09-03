@@ -145,15 +145,6 @@ export default defineNuxtConfig({
 			// 小于此值的阈值可避免对已拆分资源重复输出构建告警。
 			chunkSizeWarningLimit: 750,
 			sourcemap: false,
-			// 启用代码分割优化
-			rollupOptions: {
-				output: {
-					manualChunks: {
-						'vue-vendor': ['vue', 'vue-router'],
-						'nuxt-vendor': ['@nuxt/content', '@vueuse/core'],
-					},
-				},
-			},
 		},
 		css: {
 			preprocessorOptions: {
