@@ -38,3 +38,9 @@ const webpSrc = computed(() => {
 		>
 	</picture>
 </template>
+
+<style scoped>
+picture {
+	display: contents;
+}
+</style>
