@@ -13,11 +13,15 @@ const __dirname = path.dirname(__filename)
 
 // 配置
 const CONFIG = {
-  inputDir: path.join(__dirname, '../public/images'),
+  inputDirs: [
+    path.join(__dirname, '../public/images'),
+    path.join(__dirname, '../public'),  // 包含根目录（头像等）
+  ],
   outputSuffix: '.webp',
   quality: 85,
   skipIfExists: true, // 如果 WebP 已存在则跳过
   supportedFormats: ['.jpg', '.jpeg', '.png'],
+  excludeDirs: ['images'],  // 在 public/ 根目录时排除 images 子目录（避免重复）
   // 为不同类型的图片设置不同质量
   qualityByType: {
     avatar: 90,     // 头像高质量
@@ -52,7 +56,7 @@ function getQuality(filePath) {
 }
 
 // 递归获取所有图片文件
-function getAllImageFiles(dir, fileList = []) {
+function getAllImageFiles(dir, fileList = [], isRootPublic = false) {
   if (!fs.existsSync(dir)) {
     log(`⚠️  目录不存在: ${dir}`, 'yellow')
     return fileList
@@ -65,7 +69,11 @@ function getAllImageFiles(dir, fileList = []) {
     const stat = fs.statSync(filePath)
 
     if (stat.isDirectory()) {
-      getAllImageFiles(filePath, fileList)
+      // 如果是 public 根目录，跳过 images 子目录（避免重复）
+      if (isRootPublic && CONFIG.excludeDirs.includes(file)) {
+        return
+      }
+      getAllImageFiles(filePath, fileList, false)
     } else {
       const ext = path.extname(file).toLowerCase()
       if (CONFIG.supportedFormats.includes(ext)) {
@@ -93,7 +101,7 @@ async function optimizeImage(inputPath) {
 
   // 如果 WebP 已存在且配置跳过，则不处理
   if (CONFIG.skipIfExists && fs.existsSync(outputPath)) {
-    log(`⏭️  跳过（已存在）: ${path.relative(CONFIG.inputDir, outputPath)}`, 'gray')
+    log(`⏭️  跳过（已存在）: ${path.basename(outputPath)}`, 'gray')
     return { skipped: true }
   }
 
@@ -125,7 +133,7 @@ async function optimizeImage(inputPath) {
     const savedPercent = ((saved / originalSize) * 100).toFixed(1)
 
     log(
-      `✅ ${path.relative(CONFIG.inputDir, inputPath)} → ${formatBytes(originalSize)} → ${formatBytes(outputSize)} (节省 ${savedPercent}%)`,
+      `✅ ${path.basename(inputPath)} → ${formatBytes(originalSize)} → ${formatBytes(outputSize)} (节省 ${savedPercent}%)`,
       'green'
     )
 
@@ -150,7 +158,13 @@ async function main() {
   const startTime = Date.now()
 
   // 获取所有图片文件
-  const imageFiles = getAllImageFiles(CONFIG.inputDir)
+  let imageFiles = []
+  for (let i = 0; i < CONFIG.inputDirs.length; i++) {
+    const dir = CONFIG.inputDirs[i]
+    const isRootPublic = dir.endsWith('public')
+    const files = getAllImageFiles(dir, [], isRootPublic)
+    imageFiles = imageFiles.concat(files)
+  }
 
   if (imageFiles.length === 0) {
     log('⚠️  未找到需要优化的图片', 'yellow')
