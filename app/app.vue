@@ -6,6 +6,7 @@ const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 <template>
 <NuxtLoadingIndicator />
 <NuxtRouteAnnouncer :style="{ position: 'absolute' }" />
+<BlogWebVitals v-if="!isAdminRoute" />
 <BlogFallingDecor v-if="!isAdminRoute" />
 <BlogSkipToContent v-if="!isAdminRoute" />
 <BlogSidebar v-if="!isAdminRoute" />

@@ -44,14 +44,16 @@ export default defineNuxtConfig({
 				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
 				// 性能优化：预加载关键字体 CSS（提高首屏渲染速度）
 				{ rel: 'preload', href: 'https://rsms.me/inter/inter.css', as: 'style' },
+				// 性能优化：预加载关键字体文件
+				{ rel: 'preload', href: 'https://fonts.gstatic.cn/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeALhL4iJ-Q7m8A.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
 				// 使用 media="print" + onload 异步加载字体和样式
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay" - 关键字体，添加 font-display=swap 优化
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css?display=swap', media: 'print', onload: 'this.media="all"' },
-				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC"
-				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Noto+Sans+SC:wght@100..900&family=Noto+Serif+SC:wght@200..900&display=swap', media: 'print', onload: 'this.media="all"' },
-				// 小米字体 "MiSans"
-				{ rel: 'stylesheet', href: 'https://cdn-font.hyperos.mi.com/font/css?family=MiSans:100,200,300,400,450,500,600,650,700,900:Chinese_Simplify,Latin&display=swap', media: 'print', onload: 'this.media="all"' },
+				// "JetBrains Mono", 思源黑体 "Noto Sans SC", 思源宋体 "Noto Serif SC" - 减少字重范围优化性能
+				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;700&display=swap', media: 'print', onload: 'this.media="all"' },
+				// 小米字体 "MiSans" - 减少字重范围优化性能
+				{ rel: 'stylesheet', href: 'https://cdn-font.hyperos.mi.com/font/css?family=MiSans:400,500,700:Chinese_Simplify,Latin&display=swap', media: 'print', onload: 'this.media="all"' },
 			],
 			templateParams: {
 				separator: '|',
@@ -80,6 +82,7 @@ export default defineNuxtConfig({
 		'@/assets/css/font.scss',
 		'@/assets/css/main.scss',
 		'@/assets/css/reusable.scss',
+		'@/assets/css/performance.scss',
 	],
 
 	// @keep-sorted
@@ -107,6 +110,11 @@ export default defineNuxtConfig({
 			brotli: true,
 		},
 		minify: true,
+		// 性能优化：静态资源缓存策略
+		routeRules: {
+			'/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
+			'/assets/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
+		},
 	},
 
 	// @keep-sorted
@@ -148,6 +156,21 @@ export default defineNuxtConfig({
 			// 小于此值的阈值可避免对已拆分资源重复输出构建告警。
 			chunkSizeWarningLimit: 750,
 			sourcemap: false,
+			// 性能优化：代码分割策略
+			rollupOptions: {
+				output: {
+					manualChunks: {
+						// Vue 核心库
+						'vendor-vue': ['vue', 'vue-router', '@vueuse/core', '@vueuse/router'],
+						// UI 组件库
+						'vendor-ui': ['embla-carousel-vue', 'embla-carousel-autoplay', 'embla-carousel-wheel-gestures', 'vue-tippy'],
+						// 内容处理库（Shiki 代码高亮等）
+						'vendor-content': ['shiki', 'plain-shiki', '@shikijs/colorized-brackets', '@shikijs/transformers'],
+						// 工具库
+						'vendor-utils': ['radash', 'minisearch', 'parse-domain', 'temporal-polyfill'],
+					},
+				},
+			},
 		},
 		css: {
 			preprocessorOptions: {

@@ -58,6 +58,7 @@
     "vue": "catalog:framework",
     "vue-router": "catalog:framework",
     "vue-tippy": "catalog:ui",
+    "web-vitals": "^6.2.1",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

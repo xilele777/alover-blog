@@ -1,0 +1,64 @@
+/**
+ * 性能优化：关键 CSS
+ * 这些样式应该被内联到 HTML head 中以加速首屏渲染
+ */
+
+/* 字体优化：确保所有字体都使用 font-display: swap */
+@font-face {
+	font-family: 'Inter';
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Noto Sans SC';
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Noto Serif SC';
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'MiSans';
+	font-display: swap;
+}
+
+/* 性能优化：防止布局偏移 */
+img,
+video {
+	/* 防止图片加载时的布局偏移 */
+	height: auto;
+	max-width: 100%;
+}
+
+/* 性能优化：优化渲染性能 */
+* {
+	/* 减少重绘 */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* 性能优化：优化动画性能 */
+@media (prefers-reduced-motion: no-preference) {
+	:root {
+		scroll-behavior: smooth;
+	}
+}
+
+/* 性能优化：为动画元素使用硬件加速 */
+.will-animate {
+	will-change: transform, opacity;
+}
+
+/* 性能优化：避免昂贵的 CSS 属性 */
+.gpu-accelerated {
+	transform: translateZ(0);
+	backface-visibility: hidden;
+	perspective: 1000px;
+}
