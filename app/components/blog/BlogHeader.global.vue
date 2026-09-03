@@ -19,17 +19,13 @@ const appConfig = useAppConfig()
 		/>
 	</div>
 
-	<NuxtImg
+	<UtilImgOptimized
 		:src="appConfig.header.logo"
 		class="blog-logo round-cobblestone"
 		:class="{ circle: appConfig.header.showTitle }"
 		:alt="appConfig.title"
 		loading="eager"
 		fetchpriority="high"
-		format="webp"
-		:quality="90"
-		width="48"
-		height="48"
 	/>
 
 	<div v-if="appConfig.header.showTitle" class="blog-text">

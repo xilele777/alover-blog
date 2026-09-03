@@ -14,7 +14,7 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 
 <template>
 <UtilLink class="article-card card upraise">
-	<NuxtImg v-if="image" class="article-cover" :src="image" :alt="title" loading="lazy" format="webp" :quality="80" sizes="sm:364px md:400px lg:500px" />
+	<UtilImgOptimized v-if="image" class="article-cover" :src="image" :alt="title" loading="lazy" />
 	<article>
 		<h2 class="article-title text-creative">
 			{{ title }}
