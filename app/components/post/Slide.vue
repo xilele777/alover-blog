@@ -248,7 +248,14 @@ function handleKeydown(event: KeyboardEvent) {
 		display: block;
 		width: 100%;
 		height: 100%;
-		object-fit: cover;
+
+		/* 确保内部 img 正确继承 */
+		img {
+			display: block;
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
 	}
 
 	> .cover-fallback {

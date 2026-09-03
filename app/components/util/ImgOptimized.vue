@@ -25,7 +25,7 @@ const webpSrc = computed(() => {
 </script>
 
 <template>
-	<picture>
+	<picture :class="class">
 		<!-- WebP 格式（现代浏览器） -->
 		<source type="image/webp" :srcset="webpSrc">
 		<!-- 原始格式（回退） -->
@@ -34,13 +34,22 @@ const webpSrc = computed(() => {
 			:alt="alt"
 			:loading="loading"
 			:fetchpriority="fetchpriority"
-			:class="class"
 		>
 	</picture>
 </template>
 
 <style scoped>
+/* picture 标签继承传入的 class 样式 */
 picture {
-	display: contents;
+	/* 对于绝对定位等特殊布局，让 picture 表现得像 img */
+	display: block;
+}
+
+/* img 继承 picture 的尺寸 */
+picture > img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: inherit;
 }
 </style>

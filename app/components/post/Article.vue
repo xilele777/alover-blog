@@ -112,7 +112,11 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 	margin: 0;
 	mask-image: linear-gradient(to var(--end), transparent, #FFF 50%);
 	transition: opacity var(--dur-instant) var(--ease-out);
-	object-fit: cover;
+
+	/* 确保内部 img 继承样式 */
+	img {
+		object-fit: cover;
+	}
 
 	:hover > & {
 		opacity: 1;

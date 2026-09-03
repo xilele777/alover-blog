@@ -62,10 +62,22 @@ const appConfig = useAppConfig()
 .blog-logo {
 	height: 3em;
 
+	/* 确保内部 img 继承样式 */
+	img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
 	&.circle {
 		width: 3em;
 		border-radius: 50%;
 		box-shadow: var(--box-shadow-1), var(--box-shadow-3);
+
+		img {
+			border-radius: 50%;
+		}
 	}
 }
 
