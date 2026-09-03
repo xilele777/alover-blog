@@ -93,7 +93,7 @@ function handleKeydown(event: KeyboardEvent) {
 				:title="article.description"
 				:to="article.path"
 			>
-				<NuxtImg v-if="article.image" class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" />
+				<NuxtImg v-if="article.image" class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" :loading="index === 0 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'" format="webp" :quality="85" sizes="sm:80vw md:28vw lg:400px" />
 				<div v-else class="cover cover-fallback" aria-hidden="true">
 					<Icon name="ph:article-bold" />
 				</div>
