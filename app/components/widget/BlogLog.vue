@@ -9,6 +9,7 @@ const blogLog = [
 	{ label: '2026-08-27', value: '新增藏宝阁与项目页面' },
 	{ label: '2026-08-27', value: '新增网络记忆栏目' },
 	{ label: '2026-08-29', value: '接入访问统计' },
+	{ label: '2026-09-04', value: '优化网站性能问题' },
 ]
 // BLOG_ADMIN_LOG_END
 </script>
