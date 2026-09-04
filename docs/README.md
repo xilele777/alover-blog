@@ -4,6 +4,15 @@
 
 ## 📄 文档列表
 
+### 0. [PERFORMANCE_OPTIMIZATION_HISTORY.md](./PERFORMANCE_OPTIMIZATION_HISTORY.md)
+**性能与体验优化历史** - 基于 Git 提交和最新 Lighthouse 结果的完整复盘
+
+**内容包括**:
+- 按提交排列的优化时间线
+- 性能、SEO、无障碍和构建改动的实现位置
+- 优化前后结果及数据口径
+- 当前维护流程与遗留风险
+
 ### 1. [PERFORMANCE_OPTIMIZATION.md](./PERFORMANCE_OPTIMIZATION.md)
 **性能优化方案文档** - 详细的性能分析和优化方案
 
