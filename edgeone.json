@@ -8,15 +8,6 @@
         }
       ],
       "source": "/api/*"
-    },
-    {
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/xml"
-        }
-      ],
-      "source": "/zhilu.opml"
     }
   ],
   "redirects": [

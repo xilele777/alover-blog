@@ -1,5 +1,3 @@
-import type { FeedEntry } from './app/types/feed'
-
 const basicConfig = {
 	title: '小锅巴',
 	subtitle: '博客',
@@ -100,32 +98,9 @@ const blogConfig = {
 
 	/** 向 <head> 中添加脚本 */
 	scripts: [
-		// Twikoo 评论系统
-		{ src: 'https://lib.baomitu.com/twikoo/1.6.44/twikoo.min.js', defer: true },
 		// Umami 统计
 		{ 'src': 'https://cloud.umami.is/script.js', 'defer': true, 'data-website-id': '8083da2c-7b1c-4088-8a4b-568d7aea742a', 'data-domains': 'alover.me' },
 	],
-
-	/** 自己部署的 Twikoo 服务 */
-	twikoo: {
-		envId: 'https://twikoo.example.site/',
-		preload: 'https://twikoo.example.site/',
-	},
-}
-
-/** 用于生成 OPML 和友链页面配置 */
-export const myFeed: FeedEntry = {
-	author: blogConfig.author.name,
-	sitenick: '摸鱼处',
-	title: blogConfig.title,
-	desc: blogConfig.subtitle || blogConfig.description,
-	link: blogConfig.url,
-	feed: new URL('/atom.xml', blogConfig.url).toString(),
-	icon: blogConfig.favicon,
-	avatar: blogConfig.author.avatar,
-	archs: ['Nuxt', 'Vercel'],
-	date: blogConfig.timeEstablished,
-	comment: '这是我自己',
 }
 
 export default blogConfig

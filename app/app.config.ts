@@ -99,21 +99,12 @@ export default defineAppConfig({
 		emojiTail: ['', '😁', '🍲', '8️⃣', ''],
 	},
 
-	/** 友链页面 */
-	link: {
-		/** 无订阅源展示静音图标 */
-		remindNoFeed: true,
-		/** 友链分组内随机排序 */
-		randomInGroup: true,
-	},
-
 	/** 左侧栏导航 */
 	nav: [
 		{
 			title: '',
 			items: [
 				{ icon: 'ph:files-bold', text: '文章', url: '/' },
-				/* { icon: 'ph:link-bold', text: '友链', url: '/link' }, */
 				{ icon: 'ph:tag-bold', text: '标签', url: '/tags' },
 				{ icon: 'ph:archive-bold', text: '归档', url: '/archive' },
 				{ icon: 'ph:newspaper-bold', text: '周报', url: '/weekly' },

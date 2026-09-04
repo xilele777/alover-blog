@@ -1,4 +1,3 @@
 *               text=auto
 *.md            linguist-detectable
 pnpm-lock.yaml  -linguist-detectable
-app/feeds.ts    -linguist-detectable

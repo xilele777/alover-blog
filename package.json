@@ -17,6 +17,7 @@
     "dev:host": "nuxt dev --host",
     "optimize:images": "node scripts/optimize-images.js",
     "prebuild": "pnpm optimize:images",
+    "pregenerate": "pnpm optimize:images",
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
@@ -25,9 +26,7 @@
     "lint:fix": "eslint --fix && stylelint '**/*.{vue,scss}' --fix",
     "init-project": "tsx scripts/init-project",
     "new": "tsx scripts/new-blog",
-    "new:weekly": "tsx scripts/new-weekly",
-    "check:feed": "tsx scripts/framework/get-feed",
-    "check:feed/all": "tsx scripts/framework/check-all-feeds"
+    "new:weekly": "tsx scripts/new-weekly"
   },
   "dependencies": {
     "@bikariya/image-viewer": "catalog:ui",

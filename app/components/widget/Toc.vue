@@ -22,10 +22,6 @@ function hasHeading(tocTree: TocLink, heading?: string): boolean {
 		<a href="#main-content" aria-label="返回开头">
 			<Icon name="ph:arrow-circle-up-bold" />
 		</a>
-
-		<!-- <a href="#twikoo" aria-label="评论区">
-			<Icon name="ph:chat-circle-text-bold" />
-		</a> -->
 	</template>
 
 	<!-- 放在顶层会导致 Transition 失效 -->
