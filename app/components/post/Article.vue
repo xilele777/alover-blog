@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ArticleProps } from '~/types/article'
 
-const props = defineProps<{ useUpdated?: boolean } & ArticleProps>()
+const props = defineProps<{ useUpdated?: boolean, eager?: boolean } & ArticleProps>()
 
 const appConfig = useAppConfig()
 
@@ -14,7 +14,17 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 
 <template>
 <UtilLink class="article-card card upraise">
-	<UtilImgOptimized v-if="image" class="article-cover" :src="image" :alt="title" loading="lazy" />
+	<!-- 首屏第一张卡片的封面就是 LCP 元素，懒加载会让它等到水合后才开始取，
+	     因此由调用方通过 eager 指明，改为立即加载并提升优先级 -->
+	<UtilImgOptimized
+		v-if="image"
+		class="article-cover"
+		:src="image"
+		:alt="title"
+		:loading="eager ? 'eager' : 'lazy'"
+		:fetchpriority="eager ? 'high' : 'auto'"
+		sizes="(max-width: 60rem) 92vw, 20rem"
+	/>
 	<article>
 		<h2 class="article-title text-creative">
 			{{ title }}
@@ -99,7 +109,9 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 }
 
 .article-category {
-	color: var(--cg-color);
+	// 分类色是给图标选的，直接用作 12.8px 小字时对比度只有 2.37:1。
+	// 与正文色各取一半后，浅色模式最差 5.04:1、深色模式最差 8.23:1，均满足 4.5:1。
+	color: color-mix(in oklab, var(--cg-color, currentcolor) 50%, var(--c-text-1));
 }
 
 .article-cover {
@@ -112,11 +124,6 @@ const categoryIcon = computed(() => getCategoryIcon(categoryLabel.value))
 	margin: 0;
 	mask-image: linear-gradient(to var(--end), transparent, #FFF 50%);
 	transition: opacity var(--dur-instant) var(--ease-out);
-
-	/* 确保内部 img 继承样式 */
-	img {
-		object-fit: cover;
-	}
 
 	:hover > & {
 		opacity: 1;

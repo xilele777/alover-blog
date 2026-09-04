@@ -17,7 +17,7 @@ onMounted(async () => {
 
 	rawHtml.value = shiki.codeToHtml(
 		props.code,
-		getShikiOptions(props.language, ['ignoreColorizedBrackets']),
+		await getShikiOptions(props.language, ['ignoreColorizedBrackets']),
 	)
 })
 </script>

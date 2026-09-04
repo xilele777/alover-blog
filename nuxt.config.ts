@@ -29,28 +29,24 @@ export default defineNuxtConfig({
 			link: [
 				{ rel: 'alternate', type: 'application/atom+xml', href: '/atom.xml' },
 				{ rel: 'icon', type: 'image/svg+xml', href: blogConfig.favicon },
-				{ rel: 'preconnect', href: blogConfig.twikoo?.preload },
 				{ rel: 'shortcut icon', href: blogConfig.favicon },
 				{ rel: 'canonical', href: blogConfig.url },
 				{ rel: 'manifest', href: '/manifest.json' },
 				// 性能优化：DNS 预解析和预连接
 				{ rel: 'dns-prefetch', href: 'https://lib.baomitu.com' },
 				{ rel: 'dns-prefetch', href: 'https://rsms.me' },
-				{ rel: 'dns-prefetch', href: 'https://fonts.googleapis.cn' },
-				{ rel: 'dns-prefetch', href: 'https://fonts.gstatic.cn' },
 				{ rel: 'dns-prefetch', href: 'https://cloud.umami.is' },
-				{ rel: 'preconnect', href: 'https://fonts.gstatic.cn', crossorigin: '' },
 				{ rel: 'preconnect', href: 'https://lib.baomitu.com', crossorigin: '' },
-				// 性能优化：预加载关键字体 CSS（提高首屏渲染速度）
-				{ rel: 'preload', href: 'https://rsms.me/inter/inter.css', as: 'style' },
-				// 性能优化：预加载关键字体文件（Noto Sans SC Regular）
-				{ rel: 'preload', href: 'https://fonts.gstatic.cn/s/notosanssc/v36/k3kCo84MPvpLmixcA63oeALhL4iJ-Q7m8A.woff2', as: 'font', type: 'font/woff2', crossorigin: '' },
 				// 使用 media="print" + onload 异步加载字体和样式
+				// 不再额外写 rel="preload"：下面这条 media="print" 的 <link> 本身就是
+				// 非阻塞下载，重复 preload 反而会被 Chrome 判定为「预加载后未使用」并告警。
 				{ rel: 'stylesheet', href: 'https://lib.baomitu.com/KaTeX/0.16.9/katex.min.css', media: 'print', onload: 'this.media="all"' },
 				// "InterVariable", "Inter", "InterDisplay" - 关键字体，添加 font-display=swap 优化
 				{ rel: 'stylesheet', href: 'https://rsms.me/inter/inter.css?display=swap', media: 'print', onload: 'this.media="all"' },
-				// 思源黑体 "Noto Sans SC" - 仅保留常用字重 400/700，使用 optional 加快渲染
-				{ rel: 'stylesheet', href: 'https://fonts.googleapis.cn/css2?family=Noto+Sans+SC:wght@400;700&display=optional', media: 'print', onload: 'this.media="all"' },
+				// 中文字体不再从 Google Fonts 拉取：此前用的是 display=optional，
+				// 首屏几乎不会换用该字体，却要多付 DNS + TLS + CSS + woff2 的代价。
+				// font.scss 里的 local("Noto Sans SC") 已覆盖装有该字体的用户，
+				// 其余用户回落到 PingFang SC / Microsoft YaHei 等系统字体。
 			],
 			templateParams: {
 				separator: '|',
@@ -79,7 +75,6 @@ export default defineNuxtConfig({
 		'@/assets/css/font.scss',
 		'@/assets/css/main.scss',
 		'@/assets/css/reusable.scss',
-		'@/assets/css/performance.scss',
 	],
 
 	// @keep-sorted
@@ -90,7 +85,9 @@ export default defineNuxtConfig({
 	},
 
 	features: {
-		inlineStyles: false,
+		// 内联首屏组件样式：关掉时每个组件样式都是一条渲染阻塞的 <link>，
+		// 首页要串 8 条；内联后随 HTML 一起 gzip 送达，省掉这些往返
+		inlineStyles: true,
 	},
 
 	nitro: {
@@ -128,7 +125,6 @@ export default defineNuxtConfig({
 		'/atom.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 		'/favicon.ico': { redirect: { to: blogConfig.favicon } },
 		'/weekly.xml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
-		'/zhilu.opml': { prerender: true, headers: { 'Content-Type': 'application/xml' } },
 	},
 
 	runtimeConfig: {
@@ -165,7 +161,9 @@ export default defineNuxtConfig({
 						// UI 组件库
 						'vendor-ui': ['embla-carousel-vue', 'embla-carousel-autoplay', 'embla-carousel-wheel-gestures', 'vue-tippy'],
 						// 内容处理库（Shiki 代码高亮等）
-						'vendor-content': ['shiki', 'plain-shiki', '@shikijs/colorized-brackets', '@shikijs/transformers'],
+						'vendor-content': ['shiki', 'plain-shiki'],
+						// Shiki 转换器：仅在页面出现代码块时才动态加载，单独成块
+						'vendor-shiki-transformers': ['@shikijs/colorized-brackets', '@shikijs/transformers'],
 						// 工具库
 						'vendor-utils': ['radash', 'minisearch', 'parse-domain', 'temporal-polyfill'],
 					},

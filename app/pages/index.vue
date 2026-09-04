@@ -83,6 +83,7 @@ const listRecommended = computed(() => weightedSample(
 				v-bind="article"
 				:to="article.path"
 				:use-updated="sortOrder === 'updated'"
+				:eager="index === 0"
 				:style="getListStagger(index)"
 			/>
 		</TransitionGroup>

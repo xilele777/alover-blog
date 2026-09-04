@@ -30,6 +30,13 @@ const CONFIG = {
   },
   // 最大宽度限制
   maxWidth: 1400,
+  // 响应式变体宽度：封面图在页面上最多只有 400 CSS px 左右，
+  // 直出 1080px 原图会白白多传几十上百 KiB（Lighthouse image-delivery 的主要来源）
+  responsiveWidths: [480, 720, 960],
+  // 变体清单输出位置，供 ImgOptimized 组件生成 srcset
+  manifestPath: path.join(__dirname, '../app/image-variants.json'),
+  // public 目录，用于把绝对路径换算成站点内路径
+  publicDir: path.join(__dirname, '../public'),
 }
 
 // 颜色输出
@@ -85,6 +92,36 @@ function getAllImageFiles(dir, fileList = [], isRootPublic = false) {
   return fileList
 }
 
+// 站点内路径，如 /images/2026/foo.webp
+function toPublicPath(filePath) {
+  return `/${path.relative(CONFIG.publicDir, filePath).split(path.sep).join('/')}`
+}
+
+// 生成响应式变体，并返回该图片可用的宽度列表（含原图宽度）
+async function buildVariants(webpPath, quality) {
+  const parsed = path.parse(webpPath)
+  const { width } = await sharp(webpPath).metadata()
+  const widths = []
+
+  for (const w of CONFIG.responsiveWidths) {
+    // 只生成比原图更小的尺寸，放大没有意义
+    if (w >= width) continue
+
+    const variantPath = path.join(parsed.dir, `${parsed.name}-${w}w${CONFIG.outputSuffix}`)
+    if (!fs.existsSync(variantPath)) {
+      await sharp(webpPath)
+        .resize(w, null, { withoutEnlargement: true })
+        .webp({ quality, effort: 6, smartSubsample: true })
+        .toFile(variantPath)
+      log(`   ↳ 生成 ${w}w 变体: ${formatBytes(fs.statSync(variantPath).size)}`, 'gray')
+    }
+    widths.push(w)
+  }
+
+  widths.push(width)
+  return widths
+}
+
 // 格式化文件大小
 function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes'
@@ -102,7 +139,7 @@ async function optimizeImage(inputPath) {
   // 如果 WebP 已存在且配置跳过，则不处理
   if (CONFIG.skipIfExists && fs.existsSync(outputPath)) {
     log(`⏭️  跳过（已存在）: ${path.basename(outputPath)}`, 'gray')
-    return { skipped: true }
+    return { skipped: true, outputPath, quality: getQuality(inputPath) }
   }
 
   try {
@@ -142,7 +179,9 @@ async function optimizeImage(inputPath) {
       originalSize,
       outputSize,
       saved,
-      savedPercent
+      savedPercent,
+      outputPath,
+      quality
     }
   } catch (error) {
     log(`❌ 优化失败: ${inputPath}`, 'yellow')
@@ -184,6 +223,7 @@ async function main() {
   }
 
   // 批量处理图片
+  const manifest = {}
   for (const imagePath of imageFiles) {
     const result = await optimizeImage(imagePath)
 
@@ -196,7 +236,21 @@ async function main() {
       stats.totalOriginalSize += result.originalSize
       stats.totalOutputSize += result.outputSize
     }
+
+    // 无论主 WebP 是新生成还是已存在，都补齐响应式变体
+    if (result.outputPath) {
+      try {
+        manifest[toPublicPath(result.outputPath)] = await buildVariants(result.outputPath, result.quality)
+      } catch (error) {
+        log(`⚠️  生成变体失败: ${path.basename(result.outputPath)} — ${error.message}`, 'yellow')
+      }
+    }
   }
+
+  // 写出变体清单，键为站点内路径，值为可用宽度（升序，最后一项是原图宽度）
+  const sortedManifest = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)))
+  fs.writeFileSync(CONFIG.manifestPath, `${JSON.stringify(sortedManifest, null, '\t')}\n`)
+  log(`\n📝 已写出变体清单: ${path.relative(process.cwd(), CONFIG.manifestPath)} (${Object.keys(sortedManifest).length} 张)`, 'blue')
 
   // 输出统计信息
   const duration = ((Date.now() - startTime) / 1000).toFixed(2)

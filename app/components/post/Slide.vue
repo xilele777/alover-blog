@@ -83,32 +83,38 @@ function handleKeydown(event: KeyboardEvent) {
 
 	<div ref="carouselEl" class="z-slide-body" dir="ltr" tabindex="0" @keydown="handleKeydown">
 		<div class="slide-list">
-			<UtilLink
+			<!-- 轮播分组语义必须落在容器上：<a role="group"> 会把链接自身的角色顶掉，
+			     辅助技术和自动化浏览代理都读不出「这是一个可点击的链接」 -->
+			<div
 				v-for="(article, index) in list"
 				:key="article.path"
-				:aria-label="`${article.title || '未命名文章'}，第 ${index + 1} 篇，共 ${list.length} 篇`"
-				aria-roledescription="幻灯片"
 				class="slide-item"
 				role="group"
-				:title="article.description"
-				:to="article.path"
+				aria-roledescription="幻灯片"
+				:aria-label="`${article.title || '未命名文章'}，第 ${index + 1} 篇，共 ${list.length} 篇`"
 			>
-				<UtilImgOptimized v-if="article.image" class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" :loading="index === 0 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'" />
-				<div v-else class="cover cover-fallback" aria-hidden="true">
-					<Icon name="ph:article-bold" />
-				</div>
+				<UtilLink
+					class="slide-link"
+					:title="article.description"
+					:to="article.path"
+				>
+					<UtilImgOptimized v-if="article.image" class="cover" :src="article.image" :alt="compConf.showTitle ? '' : article.title" :loading="index === 0 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'" sizes="(max-width: 60rem) 12rem, 24rem" />
+					<div v-else class="cover cover-fallback" aria-hidden="true">
+						<Icon name="ph:article-bold" />
+					</div>
 
-				<div v-if="compConf.showTitle" class="stable-info text-creative">
-					{{ article.title }}
-				</div>
-
-				<div class="hover-info">
-					<div class="title text-creative">
+					<div v-if="compConf.showTitle" class="stable-info text-creative">
 						{{ article.title }}
 					</div>
-					<UtilDate v-if="article.date" class="desc" :date="article.date" />
-				</div>
-			</UtilLink>
+
+					<div class="hover-info">
+						<div class="title text-creative">
+							{{ article.title }}
+						</div>
+						<UtilDate v-if="article.date" class="desc" :date="article.date" />
+					</div>
+				</UtilLink>
+			</div>
 		</div>
 
 		<ZButton
@@ -174,14 +180,21 @@ function handleKeydown(event: KeyboardEvent) {
 .slide-dots {
 	display: flex;
 	align-items: center;
-	gap: 0.35rem;
 
 	> button {
+		// 圆点视觉尺寸仍是 0.5rem，但用 padding 把可点击区域撑到 24px 以满足
+		// WCAG target-size；background-clip 保证背景只画在 content box 上，
+		// 圆点看起来不会变大。横向不能再用负 margin 或负 gap 收窄，否则相邻
+		// 圆点的命中区会重叠，target-size 依然判定失败；纵向负 margin 只是把
+		// 这一行的占位收回到圆点高度，不与任何兄弟节点重叠。
 		width: 0.5rem;
 		height: 0.5rem;
-		padding: 0;
+		margin: -8px 0;
+		padding: 8px;
 		border: 0;
 		border-radius: 50%;
+		box-sizing: content-box;
+		background-clip: content-box;
 		background-color: var(--c-text-3);
 		transition: width var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 
@@ -244,21 +257,20 @@ function handleKeydown(event: KeyboardEvent) {
 		background-color: var(--c-border);
 	}
 
-	> .cover {
+	> .slide-link {
+		display: block;
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+	}
+
+	.cover {
 		display: block;
 		width: 100%;
 		height: 100%;
-
-		/* 确保内部 img 正确继承 */
-		img {
-			display: block;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-		}
 	}
 
-	> .cover-fallback {
+	.cover-fallback {
 		display: grid;
 		place-items: center;
 		background-color: var(--c-border);
@@ -267,7 +279,7 @@ function handleKeydown(event: KeyboardEvent) {
 		color: var(--c-text-3);
 	}
 
-	>.stable-info, > .hover-info {
+	.stable-info, .hover-info {
 		position: absolute;
 		text-align: center;
 		text-shadow: var(--text-shadow-black);
@@ -275,7 +287,7 @@ function handleKeydown(event: KeyboardEvent) {
 		transition: opacity var(--dur-fast) var(--ease-out);
 	}
 
-	> .stable-info {
+	.stable-info {
 		overflow: hidden;
 		bottom: 0;
 		width: 100%;
@@ -285,7 +297,7 @@ function handleKeydown(event: KeyboardEvent) {
 		text-overflow: ellipsis;
 	}
 
-	> .hover-info {
+	.hover-info {
 		display: grid;
 		place-items: center;
 		opacity: 0;
@@ -304,11 +316,11 @@ function handleKeydown(event: KeyboardEvent) {
 	}
 
 	&:hover, &:focus-within {
-		>.stable-info {
+		.stable-info {
 			opacity: 0;
 		}
 
-		> .hover-info {
+		.hover-info {
 			opacity: 1;
 		}
 	}

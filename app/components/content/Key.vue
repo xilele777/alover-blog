@@ -24,12 +24,17 @@ const emit = defineEmits<{
 	press: []
 }>()
 
-const isMac = computed(() => /mac ?os/i.test(navigator?.userAgent))
+// 预渲染时拿不到真实 UA（Node 的 navigator.userAgent 是 "Node.js/x"），
+// 若直接在 setup 期判定平台，客户端水合时会渲染出 ⌘ 而服务端是 Ctrl，
+// 触发 Vue 的 hydration mismatch。外层 UtilHydrateSafe 的 fallback 渲染的是
+// 同一份 slot，挡不住这种差异，所以必须等挂载后再切换平台符号。
+const mounted = useMounted()
+const isMac = computed(() => mounted.value && /mac ?os/i.test(navigator?.userAgent ?? ''))
 const useSymbol = computed(() => isMac.value ? props.icon !== false : props.icon)
 const keyJoiner = computed(() => useSymbol.value ? '' : '+')
 
 // @keep-sorted
-const displayMap = {
+const displayMap = computed(() => ({
 	' ': 'Space',
 	'ArrowDown': '↓',
 	'ArrowLeft': '←',
@@ -39,10 +44,10 @@ const displayMap = {
 	'Delete': 'Del',
 	'Escape': 'Esc',
 	'Meta': isMac.value ? 'Cmd' : 'Win',
-}
+}))
 
 // @keep-sorted
-const symbolMap = {
+const symbolMap = computed(() => ({
 	' ': '␣',
 	'Alt': '⌥',
 	'Backspace': '⌫',
@@ -54,15 +59,15 @@ const symbolMap = {
 	'Shift': '⇧',
 	'Tab': '⇥',
 	'Win': '⊞',
-}
+}))
 
 function normalizeCodeDisplay(code?: string) {
 	if (!code)
 		return ''
-	if (useSymbol.value && code in symbolMap)
-		return symbolMap[code as keyof typeof symbolMap]
-	if (code in displayMap)
-		return displayMap[code as keyof typeof displayMap]
+	if (useSymbol.value && code in symbolMap.value)
+		return symbolMap.value[code as keyof typeof symbolMap.value]
+	if (code in displayMap.value)
+		return displayMap.value[code as keyof typeof displayMap.value]
 	return code
 }
 

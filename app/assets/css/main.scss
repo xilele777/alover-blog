@@ -26,6 +26,10 @@
 	font-variant-alternates: styleset(open-digits, disambiguation, round-quotes-and-commas);
 	-webkit-tap-highlight-color: var(--c-primary-soft);
 
+	// 字体平滑属性本身可继承，写在根元素即可，无需用 * 选择器全量匹配
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+
 	&:dir(rtl) {
 		--start: right;
 		--end: left;
@@ -115,6 +119,10 @@ button, input, textarea {
 img {
 	contain: paint;
 	display: inline-block;
+	height: auto;
+
+	// 防止图片撑破容器造成横向溢出与布局偏移
+	max-width: 100%;
 
 	&::before {
 		all: initial;

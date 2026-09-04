@@ -69,7 +69,7 @@ onMounted(async () => {
 
 	rawHtml.value = shiki.codeToHtml(
 		props.code.trimEnd(),
-		getShikiOptions(
+		await getShikiOptions(
 			props.language,
 			[compConf.value.enableIndentGuide ? 'ignoreRenderWhitespace' : 'ignoreRenderIndentGuides'],
 			{ meta: { indent: getIndent() } },

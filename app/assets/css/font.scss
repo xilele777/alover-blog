@@ -1,6 +1,7 @@
 :root {
-	--font-basic: "InterVariable", "Noto Sans SC-Local", "sans-serif", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
-	--font-serif: "Noto Serif SC-Local", Georgia, "STSong", "SimSun", serif;
+	// 注意 sans-serif 等通用族名不能加引号，加引号会被当成一个真实存在的字体名而永不命中
+	--font-basic: "InterVariable", "Noto Sans SC-Local", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+	--font-serif: "Noto Serif SC-Local", georgia, "STSong", "SimSun", serif;
 	--font-creative: "InterVariable", "Noto Sans SC-Local", "Noto Sans SC", system-ui, sans-serif;
 	--font-stroke-free: "Inter", "Lantinghei SC", "Microsoft YaHei", system-ui, sans-serif;
 	--font-monospace: "Cascadia Code", "Consolas", "Monaco", "Courier New", monospace;

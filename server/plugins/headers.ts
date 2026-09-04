@@ -15,8 +15,10 @@ export default defineNitroPlugin((nitroApp) => {
     }
 
     // 性能优化：添加 Link 预加载头
+    // 只保留当前真正会请求的第三方域名；Google Fonts 已下线，
+    // 继续 preconnect fonts.gstatic.cn 只会白白多握一次手。
     const preloadLinks = [
-      '<https://fonts.gstatic.cn>; rel=preconnect; crossorigin',
+      '<https://rsms.me>; rel=preconnect; crossorigin',
       '<https://lib.baomitu.com>; rel=preconnect; crossorigin',
     ]
 

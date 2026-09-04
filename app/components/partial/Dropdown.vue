@@ -1,6 +1,10 @@
 <!-- https://vue-tippy.netlify.app/props/ -->
 <!-- 如果要点击触发，请使用 trigger="focusin" 并添加 tabindex="0" -->
-
+<!--
+	aria.expanded 置 false 是为了让 tippy 不要在外层 <span> 上写 aria-expanded：
+	该 span 没有 role，带 aria-expanded 会触发 aria-allowed-attr 无障碍失败；
+	真正的控件是插槽里的 <button>，给 span 加 role="button" 反而会造成交互元素嵌套。
+-->
 <template>
 <Tooltip
 	class="dropdown"
@@ -9,6 +13,7 @@
 	:arrow="false"
 	:hide-on-click="false"
 	:offset="[0, 0]"
+	:aria="{ expanded: false }"
 >
 	<slot />
 	<template #content="{ hide }">
