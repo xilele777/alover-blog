@@ -42,3 +42,13 @@ categories:
         link: https://music.163.com/#/album?id=2301075
         description: “一部绝对的杰作，是我们这个时代为数不多的与贝多芬的交响曲指向同一方向的交响乐作品之一。”——评论家卡尔弗洛丁（1903年）
         rating: 5
+      - title: 民族歌剧《沂蒙山》
+        cover: /images/treasure/b38f28ba5233497bb50ba9e0cecb4e70.jpg
+        link: https://www.bilibili.com/video/BV13Z4y1W7a7/?share_source=copy_web&vd_source=04629dd58b08ac288637258e53e4956d
+        description: 当代最好的一部民族歌剧之一
+        rating: 5
+      - title: 民族歌剧《八一起义》
+        cover: /images/treasure/aca29163f494c82.jpg
+        link: https://www.bilibili.com/video/BV1L94y1M7NM
+        description: 等待这一刻，迎接波澜壮阔~我在等待这一刻~
+        rating: 5
