@@ -23,6 +23,7 @@ const uploads = ref<Record<string, string>>({})
 const previews = ref<Record<string, string>>({})
 const failedImages = ref(new Set<string>())
 const disabled = computed(() => !props.enabled || !ready.value || uploading.value)
+const categorySuggestions = computed(() => [...new Set(items.value.map(item => item.category?.trim()).filter(Boolean))])
 let disposed = false
 
 function setPreview(image: string, source: string) {
@@ -136,7 +137,7 @@ onBeforeUnmount(() => {
 <template>
 <div class="badges-editor">
 	<p class="editor-note">
-		上传 SVG，填写名称、详情和获得日期，保存后点击「提交全部」发布。
+		上传 SVG，填写名称、分类、详情和获得日期，保存后点击「提交全部」发布。
 	</p>
 	<p v-if="!enabled" class="editor-error">
 		请先完成 GitHub 配置，再管理徽章。
@@ -151,6 +152,9 @@ onBeforeUnmount(() => {
 		重新读取
 	</button>
 	<input ref="fileInput" class="file-input" type="file" accept=".svg,image/svg+xml" aria-label="选择徽章 SVG" @change="uploadSvg">
+	<datalist id="badge-category-suggestions">
+		<option v-for="category in categorySuggestions" :key="category" :value="category" />
+	</datalist>
 	<fieldset :disabled="disabled">
 		<div v-for="(item, index) in items" :key="item.id" class="badge-editor-item">
 			<div class="badge-editor-preview">
@@ -164,8 +168,9 @@ onBeforeUnmount(() => {
 			<div class="badge-editor-fields">
 				<label>徽章名称<input v-model="item.name" type="text" maxlength="100" placeholder="例如：初次启程"></label>
 				<label>获得日期<input v-model="item.date" type="date"></label>
+				<label>徽章分类<input v-model="item.category" type="text" list="badge-category-suggestions" maxlength="30" placeholder="例如：活动纪念、学习成就（选填）"></label>
 				<label>徽章详情<textarea v-model="item.description" rows="4" placeholder="记录获得徽章的经历与意义" /></label>
-				<label class="demo-option"><input v-model="item.demo" type="checkbox">演示徽章（不计入已获得数量）</label>
+				<label class="demo-option"><input v-model="item.demo" type="checkbox">演示徽章（不参与统计）</label>
 				<div class="item-actions">
 					<button type="button" :aria-label="`上移第 ${index + 1} 枚徽章`" :disabled="index === 0" @click="moveArrayItem(items, index, -1)">
 						<Icon name="ph:arrow-up-bold" />

@@ -4,6 +4,7 @@ export interface CollectionBadge {
 	image: string
 	description: string
 	date: string
+	category?: string
 	demo?: boolean
 }
 
@@ -34,18 +35,23 @@ export function parseBadgeCollection(source: string): CollectionBadge[] {
 			throw new TypeError(`${prefix}的获得日期无效。`)
 		if (item.demo !== undefined && typeof item.demo !== 'boolean')
 			throw new TypeError(`${prefix}的演示标识无效。`)
+		if (item.category !== undefined && (typeof item.category !== 'string' || item.category.trim().length > 30))
+			throw new TypeError(`${prefix}的分类必须是 30 字以内的文字。`)
 		ids.add(item.id)
-		return { ...item, name: item.name.trim(), description: item.description.trim() } as CollectionBadge
+		return { ...item, name: item.name.trim(), description: item.description.trim(), category: item.category?.trim() || undefined } as CollectionBadge
 	})
 }
 
 export function getBadgeStats(collection: CollectionBadge[]) {
 	const acquired = collection.filter(badge => !badge.demo)
-	const dates = acquired.map(badge => badge.date).sort()
+	const counts = new Map<string, number>()
+	for (const badge of acquired) {
+		const category = badge.category || '未分类'
+		counts.set(category, (counts.get(category) || 0) + 1)
+	}
 	return {
-		total: collection.length,
 		acquired: acquired.length,
-		demos: collection.length - acquired.length,
-		latest: dates.at(-1),
+		categories: Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+		recent: acquired.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3),
 	}
 }
