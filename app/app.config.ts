@@ -110,6 +110,7 @@ export default defineAppConfig({
 				{ icon: 'ph:newspaper-bold', text: '周报', url: '/weekly' },
 				{ icon: 'ph:globe-hemisphere-west-bold', text: '网络记忆', url: '/memory' },
 				{ icon: 'ph:treasure-chest-bold', text: '藏宝阁', url: '/treasure' },
+				{ icon: 'ph:medal-bold', text: '徽章', url: '/badges' },
 				{ icon: 'ph:rocket-launch-bold', text: '项目', url: '/projects' },
 				{ icon: 'ph:book-open-bold', text: 'Wiki', url: 'https://wiki.alover.me' },
 				{ icon: 'ph:chart-line-bold', text: '访问统计', url: 'https://cloud.umami.is/analytics/us/share/jW9qM012FsWV68UT?date=30day&page=1' },

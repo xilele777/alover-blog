@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import type { CollectionBadge } from '~/utils/badge-collection'
 import type { TreasureDoc } from '~/utils/treasure-doc'
+import { badges } from '~~/data/badges'
+import { badgeCollectionPath, parseBadgeCollection } from '~/utils/badge-collection'
 import {
 	createTreasureCategory,
 	createTreasureItem,
@@ -243,7 +246,7 @@ const posts = ref<GithubPost[]>([])
 const selectedPostPath = ref('')
 const selectedPostSha = ref('')
 const selectedPostOriginalPath = ref('')
-const activeDialog = ref<'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'log' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | 'treasure' | 'weekly' | null>(null)
+const activeDialog = ref<'badges' | 'categories' | 'confirm' | 'delete' | 'github' | 'images' | 'log' | 'meta' | 'posts' | 'site' | 'staged' | 'tags' | 'treasure' | 'weekly' | null>(null)
 const pendingConfirmation = shallowRef<PendingConfirmation | null>(null)
 const postSearch = ref('')
 const postView = ref<'all' | 'drafts' | 'published'>('all')
@@ -420,6 +423,7 @@ const canUseGithub = computed(() => hasGithubSettings())
 const stagedChangeCount = computed(() => stagedChanges.value.length)
 const stagedChangeLabel = computed(() => stagedChangeCount.value ? `提交全部（${stagedChangeCount.value}）` : '提交全部')
 const dialogMeta = computed(() => ({
+	badges: { icon: 'ph:medal-bold', title: '徽章管理' },
 	categories: { icon: 'ph:folders-bold', title: '分类管理' },
 	confirm: { icon: 'ph:warning-circle-bold', title: pendingConfirmation.value?.title || '确认操作' },
 	delete: { icon: 'ph:trash-bold', title: '删除文章' },
@@ -966,6 +970,10 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 function describeStagedChange(change: StagedChange) {
 	if (change.delete)
 		return { label: '删除', tone: 'danger' }
+	if (change.path === badgeCollectionPath)
+		return { label: '徽章', tone: 'normal' }
+	if (change.path.startsWith('public/images/badges/'))
+		return { label: '徽章图片', tone: 'normal' }
 	if (change.encoding === 'base64')
 		return { label: '新图片', tone: 'normal' }
 	if (change.path === treasureFilePath)
@@ -1594,6 +1602,8 @@ async function scanImageUsage() {
 	isScanningImageUsage.value = true
 	try {
 		const contents = await Promise.all(posts.value.map(post => fetchPostMarkdown(post.path).catch(() => '')))
+		// 徽章通过数据文件引用图片，也必须计入使用情况，避免被当作未使用图片清理。
+		contents.push(await loadBadgeCollectionSource())
 		const usage: Record<string, number> = {}
 		const allPaths = [
 			...repoImages.value.map(image => image.path),
@@ -1606,7 +1616,7 @@ async function scanImageUsage() {
 		imageUsage.value = usage
 		const unusedCount = Object.values(usage).filter(count => count === 0).length
 		statusMessage.value = unusedCount
-			? `引用检测完成：${unusedCount} 张图片未被任何文章引用。`
+			? `引用检测完成：${unusedCount} 张图片未被文章或徽章引用。`
 			: '引用检测完成：所有图片都在使用中。'
 	}
 	catch (error) {
@@ -1766,6 +1776,8 @@ async function openDeleteDialog() {
 		const otherContents = await Promise.all(
 			otherPosts.map(post => fetchPostMarkdown(post.path).catch(() => '')),
 		)
+		if (refs.some(ref => ref.startsWith('/images/badges/')))
+			otherContents.push(await loadBadgeCollectionSource())
 		deleteImageCandidates.value = refs.map((ref) => {
 			const usedElsewhere = otherContents.some(content => content.includes(ref))
 			return { checked: !usedElsewhere, path: `public${ref}`, ref, usedElsewhere }
@@ -1956,6 +1968,42 @@ async function fetchTextFile(path: string) {
 		`${repoPath.value}/contents/${encodePath(path)}?ref=${encodeURIComponent(settings.branch.trim())}`,
 	)
 	return decodeBase64(current.content)
+}
+
+async function loadBadgeCollectionSource() {
+	const staged = getStagedContent(badgeCollectionPath)
+	if (staged !== undefined)
+		return staged
+	if (!canUseGithub.value)
+		return JSON.stringify(badges)
+	return fetchTextFile(badgeCollectionPath)
+}
+
+function getBadgePreview(image: string) {
+	return getImagePreviewSrc(`public${image}`)
+}
+
+async function loadBadgeImage(image: string) {
+	if (!canUseGithub.value)
+		throw new Error('请先配置 GitHub。')
+	return fetchTextFile(`public${image}`)
+}
+
+function stageBadges(items: CollectionBadge[], uploads: Record<string, string>) {
+	if (!canUseGithub.value)
+		throw new Error('请先完成 GitHub 配置。')
+	const collection = parseBadgeCollection(JSON.stringify(items))
+	for (const badge of collection) {
+		if (stagedChanges.value.some(change => change.path === `public${badge.image}` && change.delete))
+			throw new Error(`「${badge.name}」的图片已暂存删除，请先在暂存区撤销该删除。`)
+	}
+	for (const [image, source] of Object.entries(uploads)) {
+		stageChange({ path: `public${image}`, content: bytesToBase64(new TextEncoder().encode(source)), encoding: 'base64' })
+	}
+	stageChange({ path: badgeCollectionPath, content: JSON.stringify(collection, null, 2) })
+	imageUsage.value = null
+	closeDialog()
+	statusMessage.value = '徽章和 SVG 图片已暂存，点击「提交全部」后统一发布。'
 }
 
 /**
@@ -2366,6 +2414,10 @@ onBeforeUnmount(() => {
 			<button class="secondary-button" type="button" @click="openTreasureDialog">
 				<Icon name="ph:treasure-chest-bold" />
 				<span>藏宝阁</span>
+			</button>
+			<button class="secondary-button" type="button" @click="openDialog('badges')">
+				<Icon name="ph:medal-bold" />
+				<span>徽章</span>
 			</button>
 			<button class="secondary-button" type="button" @click="openWeeklyDialog">
 				<Icon name="ph:newspaper-bold" />
@@ -2847,6 +2899,16 @@ onBeforeUnmount(() => {
 						</p>
 					</div>
 				</div>
+
+				<AdminBadgesEditor
+					v-else-if="activeDialog === 'badges'"
+					class="dialog-content"
+					:enabled="canUseGithub"
+					:load="loadBadgeCollectionSource"
+					:preview="getBadgePreview"
+					:load-image="loadBadgeImage"
+					:save="stageBadges"
+				/>
 
 				<div v-else-if="activeDialog === 'treasure'" class="dialog-content treasure-form">
 					<div class="treasure-modes">
@@ -3419,6 +3481,7 @@ button:disabled {
 	justify-content: flex-end;
 }
 
+.dialog-badges,
 .dialog-treasure,
 .dialog-weekly {
 	width: min(54rem, 100%);

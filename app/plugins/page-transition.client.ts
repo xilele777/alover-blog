@@ -16,6 +16,7 @@
 const LIST_ROUTES = new Set([
 	'/',
 	'/archive',
+	'/badges',
 	'/memory',
 	'/preview',
 	'/projects',
