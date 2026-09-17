@@ -14,23 +14,33 @@ useSeoMeta({
 const detailDialog = useTemplateRef<HTMLDialogElement>('detailDialog')
 const selectedBadge = ref<CollectionBadge | null>(null)
 const reducedMotion = usePreferredReducedMotion()
+const dialogActive = ref(false)
 const closing = ref(false)
 const scrollLocked = useScrollLock(computed(() => import.meta.client ? document.body : null))
 let sourceCard: HTMLElement | null = null
-let animations: Animation[] = []
 let disposed = false
 
-function cancelAnimations() {
-	animations.forEach(animation => animation.cancel())
-	animations = []
+function nextAnimationFrame() {
+	return new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
 }
 
-function cardTransform(dialog: HTMLDialogElement) {
-	const target = dialog.getBoundingClientRect()
-	const source = sourceCard?.isConnected ? sourceCard.getBoundingClientRect() : null
-	if (!source || source.bottom < 0 || source.top > window.innerHeight)
-		return 'translateY(16px) scale(0.96)'
-	return `translate(${source.left + source.width / 2 - target.left - target.width / 2}px, ${source.top + source.height / 2 - target.top - target.height / 2}px) scale(${source.width / target.width}, ${source.height / target.height})`
+function waitForDialogTransition(dialog: HTMLDialogElement) {
+	return new Promise<void>((resolve) => {
+		let settled = false
+		const controller = new AbortController()
+		const finish = () => {
+			if (settled)
+				return
+			settled = true
+			controller.abort()
+			resolve()
+		}
+		dialog.addEventListener('transitionend', (event) => {
+			if (event.target === dialog && event.propertyName === 'opacity')
+				finish()
+		}, { signal: controller.signal })
+		window.setTimeout(finish, 260)
+	})
 }
 
 async function openBadge(badge: CollectionBadge, event: MouseEvent) {
@@ -44,19 +54,10 @@ async function openBadge(badge: CollectionBadge, event: MouseEvent) {
 		return
 	dialog.showModal()
 	scrollLocked.value = true
-	if (reducedMotion.value === 'reduce')
-		return
-	animations.push(dialog.animate([
-		{ transform: cardTransform(dialog), opacity: 0.35, borderRadius: '14px' },
-		{ transform: 'none', opacity: 1, borderRadius: '20px' },
-	], { duration: 420, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }))
-	const body = dialog.querySelector('.detail-body')
-	if (body) {
-		animations.push(body.animate([
-			{ opacity: 0, transform: 'translateY(12px)' },
-			{ opacity: 1, transform: 'none' },
-		], { duration: 240, delay: 130, fill: 'backwards', easing: 'ease-out' }))
-	}
+	if (reducedMotion.value !== 'reduce')
+		await nextAnimationFrame()
+	if (!disposed && dialog.open)
+		dialogActive.value = true
 }
 
 async function closeBadge() {
@@ -64,24 +65,15 @@ async function closeBadge() {
 	if (!dialog?.open || closing.value)
 		return
 	closing.value = true
-	// 从当前动画帧接续关闭，快速点击或按 Esc 时也不会跳回终点。
-	const current = getComputedStyle(dialog)
-	const from = { transform: current.transform, opacity: current.opacity }
-	cancelAnimations()
-	if (reducedMotion.value !== 'reduce') {
-		const animation = dialog.animate([
-			from,
-			{ transform: cardTransform(dialog), opacity: 0, borderRadius: '14px' },
-		], { duration: 260, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' })
-		animations.push(animation)
-		await animation.finished.catch(() => {})
-	}
-	if (!disposed)
+	const transition = reducedMotion.value === 'reduce' ? Promise.resolve() : waitForDialogTransition(dialog)
+	dialogActive.value = false
+	await transition
+	if (!disposed && dialog.open)
 		dialog.close()
 }
 
 function onClose() {
-	cancelAnimations()
+	dialogActive.value = false
 	closing.value = false
 	scrollLocked.value = false
 	selectedBadge.value = null
@@ -100,7 +92,6 @@ function closeOnBackdrop(event: MouseEvent) {
 
 onBeforeUnmount(() => {
 	disposed = true
-	cancelAnimations()
 	detailDialog.value?.close()
 	scrollLocked.value = false
 })
@@ -113,13 +104,12 @@ onBeforeUnmount(() => {
 	</div>
 
 	<header class="collection-header">
-		<h1>徽章</h1>
+		<h1><Icon name="ph:medal-duotone" aria-hidden="true" />徽章</h1>
 		<div class="header-art" aria-hidden="true">
-			<span class="header-orbit" />
-			<span class="ornament-tile tile-back"><Icon name="ph:star-four-duotone" /></span>
-			<span class="ornament-tile tile-front"><Icon name="ph:seal-check-duotone" /></span>
-			<Icon class="ornament-spark" name="ph:sparkle-fill" />
-			<span class="ornament-dot" />
+			<span class="art-ring" />
+			<span class="art-icon art-icon-back"><Icon name="ph:star-four-duotone" /></span>
+			<span class="art-icon art-icon-front"><Icon name="ph:seal-check-duotone" /></span>
+			<Icon class="art-spark" name="ph:sparkle-fill" />
 		</div>
 	</header>
 
@@ -137,12 +127,13 @@ onBeforeUnmount(() => {
 				<span class="badge-stage">
 					<span class="badge-number">{{ String(index + 1).padStart(2, '0') }}</span>
 					<span v-if="badge.demo" class="demo-label">演示</span>
+					<span class="badge-halo" aria-hidden="true" />
 					<img :src="badge.image" :alt="badge.name" width="320" height="360" loading="lazy">
-					<span v-if="badge.category" class="badge-category" :title="badge.category">{{ badge.category }}</span>
 				</span>
 				<span class="badge-info">
 					<span class="badge-name">{{ badge.name }}</span>
-					<span class="badge-date"><time :datetime="badge.date">{{ badge.date }}</time></span>
+					<span class="badge-date"><Icon name="ph:calendar-blank" aria-hidden="true" /><time :datetime="badge.date">{{ badge.date }}</time></span>
+					<span v-if="badge.category" class="badge-category" :title="badge.category">{{ badge.category }}</span>
 				</span>
 			</button>
 		</div>
@@ -153,9 +144,9 @@ onBeforeUnmount(() => {
 		</div>
 	</section>
 
-	<dialog ref="detailDialog" class="badge-dialog" :class="{ closing }" aria-labelledby="badge-detail-title" @cancel.prevent="closeBadge" @close="onClose" @click="closeOnBackdrop">
+	<dialog ref="detailDialog" class="badge-dialog" :class="{ 'dialog-active': dialogActive, closing }" aria-labelledby="badge-detail-title" @cancel.prevent="closeBadge" @close="onClose" @click="closeOnBackdrop">
 		<template v-if="selectedBadge">
-			<button class="close-detail" type="button" aria-label="关闭徽章详情" autofocus @click="closeBadge">
+			<button class="close-detail" type="button" aria-label="关闭徽章详情" @click="closeBadge">
 				<Icon name="ph:x-bold" />
 			</button>
 			<div class="detail-stage">
@@ -163,12 +154,16 @@ onBeforeUnmount(() => {
 				<img :src="selectedBadge.image" :alt="selectedBadge.name" width="320" height="360">
 			</div>
 			<div class="detail-body">
+				<p class="detail-kicker">
+					<Icon name="ph:seal-check-fill" aria-hidden="true" />徽章档案
+				</p>
 				<h2 id="badge-detail-title">
 					{{ selectedBadge.name }}
 				</h2>
-				<p class="detail-date">
-					获得于 <time :datetime="selectedBadge.date">{{ selectedBadge.date }}</time>
-				</p>
+				<div class="detail-meta">
+					<span><Icon name="ph:calendar-blank" aria-hidden="true" />获得于 <time :datetime="selectedBadge.date">{{ selectedBadge.date }}</time></span>
+					<span v-if="selectedBadge.category"><Icon name="ph:tag" aria-hidden="true" />{{ selectedBadge.category }}</span>
+				</div>
 				<p class="detail-story">
 					{{ selectedBadge.description }}
 				</p>
@@ -179,7 +174,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" scoped>
-.badges-page { padding: 1rem; }
+.badges-page {
+	--badge-gold: #B58B42;
+
+	padding: 1rem;
+}
 
 .collection-header {
 	display: flex;
@@ -187,121 +186,128 @@ onBeforeUnmount(() => {
 	justify-content: space-between;
 	position: relative;
 	overflow: hidden;
-	min-height: 120px;
+	min-height: 124px;
 	margin-bottom: 1.25rem;
 	padding: 1.5rem 1.75rem;
 	border: 1px solid var(--c-border);
 	border-radius: 1rem;
-	background: radial-gradient(ellipse at 100% 80%, var(--c-primary-soft), transparent 65%), var(--ld-bg-card);
-
-	h1 {
-		position: relative;
-		padding-bottom: 0.55rem;
-		font-size: 2rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-
-		&::after {
-			content: "";
-			position: absolute;
-			bottom: 0;
-			left: 0;
-			width: 1.4rem;
-			height: 3px;
-			border-radius: 2px;
-			background: var(--c-primary);
-		}
-	}
-}
-
-.header-art {
-	flex: 0 0 180px;
-	position: relative;
-	height: 72px;
-	color: var(--c-primary);
-	pointer-events: none;
-}
-
-.header-orbit {
-	position: absolute;
-	opacity: 0.1;
-	top: -55px;
-	right: -55px;
-	width: 190px;
-	height: 190px;
-	border: 1px solid currentcolor;
-	border-radius: 50%;
+	background:
+		linear-gradient(115deg, transparent 50%, color-mix(in srgb, var(--c-primary) 6%, transparent)),
+		var(--ld-bg-card);
 
 	&::after {
 		content: "";
 		position: absolute;
-		inset: 18px;
-		border: 1px solid currentcolor;
-		border-radius: inherit;
+		top: 0;
+		right: 0;
+		width: 38%;
+		height: 100%;
+		border-left: 1px solid color-mix(in srgb, var(--c-primary) 9%, transparent);
+		background-image: linear-gradient(color-mix(in srgb, var(--c-primary) 7%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--c-primary) 7%, transparent) 1px, transparent 1px);
+		background-size: 24px 24px;
+		mask-image: linear-gradient(90deg, transparent, #000 50%);
+		pointer-events: none;
+	}
+
+	h1 {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		position: relative;
+		font-size: 2rem;
+		font-weight: 720;
+		letter-spacing: 0;
+		z-index: 1;
+
+		.iconify {
+			font-size: 1.6rem;
+			color: var(--c-primary);
+		}
 	}
 }
 
-.ornament-tile {
+.detail-kicker {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.72rem;
+	font-weight: 650;
+	color: var(--c-primary);
+}
+
+.header-art {
+	flex: 0 0 176px;
+	position: relative;
+	height: 86px;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.art-ring {
+	position: absolute;
+	top: 50%;
+	right: -48px;
+	width: 178px;
+	height: 178px;
+	border: 1px solid color-mix(in srgb, var(--c-primary) 14%, transparent);
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 18px color-mix(in srgb, var(--c-primary) 3%, transparent);
+	transform: translateY(-50%);
+}
+
+.art-icon {
 	display: grid;
 	place-items: center;
 	position: absolute;
-	width: 68px;
-	height: 76px;
 	border: 1px solid color-mix(in srgb, var(--c-primary) 18%, var(--c-border));
-	border-radius: 1rem;
+	border-radius: 0.8rem;
+	box-shadow: 0 8px 20px color-mix(in srgb, var(--c-primary) 8%, transparent);
 	background: var(--ld-bg-card);
+	color: var(--c-primary);
 }
 
-.tile-back {
-	top: -6px;
-	right: 68px;
-	background: var(--c-primary-soft);
-	font-size: 1.65rem;
-	transform: rotate(-18deg);
-
-	.iconify { opacity: 0.45; }
+.art-icon-back {
+	top: 4px;
+	right: 74px;
+	width: 54px;
+	height: 60px;
+	background: color-mix(in srgb, var(--c-primary) 5%, var(--ld-bg-card));
+	font-size: 1.35rem;
+	transform: rotate(-12deg);
 }
 
-.tile-front {
-	top: 3px;
-	right: 25px;
-	box-shadow: 0 6px 16px color-mix(in srgb, var(--c-primary) 8%, transparent);
-	font-size: 2.6rem;
-	transform: rotate(12deg);
+.art-icon-front {
+	top: 14px;
+	right: 24px;
+	width: 60px;
+	height: 66px;
+	font-size: 2rem;
+	transform: rotate(8deg);
 }
 
-.ornament-spark {
+.art-spark {
 	position: absolute;
-	opacity: 0.5;
-	top: -9px;
-	right: 3px;
-	font-size: 0.85rem;
-}
-
-.ornament-dot {
-	position: absolute;
-	opacity: 0.35;
-	bottom: 2px;
-	left: 14px;
-	width: 5px;
-	height: 5px;
-	border-radius: 50%;
-	background: currentcolor;
+	top: 1px;
+	right: 4px;
+	font-size: 0.75rem;
+	color: var(--c-primary);
 }
 
 .badge-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
-	gap: 0.75rem;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+	gap: 0.9rem;
 }
 
 .badge-card {
 	overflow: hidden;
 	min-width: 0;
 	border: 1px solid var(--c-border);
-	border-radius: 0.9rem;
+	border-radius: 0.75rem;
+	box-shadow: 0 1px 0 rgb(0 0 0 / 2%);
 	background: var(--ld-bg-card);
 	text-align: center;
+	transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .badge-card:focus-visible, .close-detail:focus-visible {
@@ -318,18 +324,31 @@ onBeforeUnmount(() => {
 }
 
 .badge-stage {
-	height: 164px;
-	margin: 0.4rem;
-	border-radius: 0.55rem;
+	contain: paint;
+	min-height: 205px;
+	margin: 0.45rem;
+	border-radius: 0.45rem;
 
 	img {
-		width: 132px;
-		height: 148px;
-		max-width: 90%;
+		position: relative;
+		width: 148px;
+		height: 166px;
+		max-width: 78%;
 		transition: transform var(--dur-base) var(--ease-out);
 		filter: drop-shadow(0 10px 10px rgb(24 44 68 / 15%));
 		object-fit: contain;
+		z-index: 1;
 	}
+}
+
+.badge-halo {
+	position: absolute;
+	width: 132px;
+	height: 132px;
+	border: 1px solid color-mix(in srgb, var(--c-primary) 12%, var(--c-border));
+	border-radius: 50%;
+	box-shadow: 0 0 0 18px color-mix(in srgb, var(--c-primary) 3%, transparent);
+	transition: transform var(--dur-base) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .badge-number, .demo-label {
@@ -349,50 +368,43 @@ onBeforeUnmount(() => {
 	right: 0.75rem;
 	padding: 0.15rem 0.4rem;
 	border: 1px solid var(--c-border);
-	border-radius: 0.3rem;
+	border-radius: 0.25rem;
 	background: var(--ld-bg-card);
 }
 
 .badge-info {
 	display: block;
-	padding: 0.45rem 0.75rem 0.9rem;
+	min-height: 66px;
+	padding: 0.55rem 0.85rem 0.85rem;
 }
 
 .badge-name {
 	display: block;
 	overflow-wrap: anywhere;
-	font-size: 0.9rem;
+	font-size: 0.92rem;
 	font-weight: 650;
 }
 
 .badge-category {
-	position: absolute;
+	display: block;
 	overflow: hidden;
-	right: 0.45rem;
-	bottom: 0.45rem;
-	max-width: calc(100% - 0.9rem);
-	padding: 0.15rem 0.4rem;
-	border: 1px solid var(--c-border);
-	border-radius: 0.3rem;
-	background: var(--ld-bg-card);
+	max-width: 100%;
+	margin-top: 0.4rem;
 	font-size: 0.6rem;
-	line-height: 1.5;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	color: var(--c-text-2);
-}
-
-.badge-date, .detail-date {
-	display: block;
-	margin-top: 0.6rem;
-	font-size: 0.8rem;
-	line-height: 1.7;
-	color: var(--c-text-2);
+	color: var(--c-text-3);
 }
 
 .badge-date {
-	margin-top: 0.25rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.3rem;
+	margin-top: 0.3rem;
 	font-size: 0.7rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--c-text-2);
 }
 
 .empty-collection {
@@ -416,37 +428,43 @@ onBeforeUnmount(() => {
 .badge-dialog {
 	position: fixed;
 	overflow: auto;
+	opacity: 0;
 	inset: 0;
-	width: min(500px, calc(100% - 2rem));
+	width: min(480px, calc(100% - 2rem));
 	max-width: none;
-	max-height: 85dvh;
+	max-height: min(760px, calc(100dvh - 2rem));
 	margin: auto;
 	padding: 0;
 	border: 1px solid var(--c-border);
-	border-radius: 1.25rem;
+	border-radius: 1rem;
 	box-shadow: 0 24px 80px rgb(0 0 0 / 25%);
 	background: var(--ld-bg-card);
 	color: var(--c-text-1);
+	transform: translateY(14px) scale(0.975);
 	transform-origin: center;
+	transition: opacity 220ms var(--ease-out), transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 	overscroll-behavior: contain;
 
 	&::backdrop {
+		opacity: 0;
 		background: rgb(10 18 30 / 50%);
 		backdrop-filter: blur(5px);
-		animation: badge-backdrop-in 300ms ease both;
+		transition: opacity 220ms ease;
 	}
 
-	&.closing::backdrop { animation: badge-backdrop-out 260ms ease both; }
-}
+	&.dialog-active {
+		opacity: 1;
+		transform: none;
 
-@keyframes badge-backdrop-in {
-	from { opacity: 0; }
-	to { opacity: 1; }
-}
+		&::backdrop { opacity: 1; }
+	}
 
-@keyframes badge-backdrop-out {
-	from { opacity: 1; }
-	to { opacity: 0; }
+	&.closing {
+		transition-duration: 180ms;
+		transition-timing-function: var(--ease-in);
+
+		&::backdrop { transition-duration: 180ms; }
+	}
 }
 
 .close-detail {
@@ -459,24 +477,39 @@ onBeforeUnmount(() => {
 	height: 2.25rem;
 	border: 1px solid var(--c-border);
 	border-radius: 50%;
-	background: var(--ld-bg-card);
+	background: color-mix(in srgb, var(--ld-bg-card) 90%, transparent);
 	color: var(--c-text-2);
+	transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 	z-index: 1;
 
 	&:hover {
 		background: var(--c-bg-2);
 		color: var(--c-text);
+		transform: rotate(4deg);
 	}
 }
 
 .detail-stage {
+	overflow: hidden;
 	min-width: 0;
-	padding: 2rem 1rem 1.5rem;
+	min-height: 300px;
+	padding: 2.25rem 1rem 1.5rem;
+
+	&::after {
+		content: "";
+		position: absolute;
+		bottom: 0;
+		width: 72%;
+		height: 1px;
+		background: linear-gradient(90deg, transparent, var(--c-border), transparent);
+	}
 
 	img {
 		position: relative;
-		width: 210px;
-		height: 237px;
+		width: 220px;
+		height: 248px;
+		transform: rotate(-2deg) scale(0.92);
+		transition: transform 440ms cubic-bezier(0.22, 1, 0.36, 1) 40ms;
 		filter: drop-shadow(0 12px 15px rgb(24 44 68 / 18%));
 		object-fit: contain;
 	}
@@ -488,25 +521,68 @@ onBeforeUnmount(() => {
 	width: 310px;
 	height: 310px;
 	max-width: 95%;
-	color: #B58B42;
+	color: var(--badge-gold);
+	transform: scale(0.94);
+	transition: opacity 350ms ease 60ms, transform 440ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
 	pointer-events: none;
 }
 
 .detail-body {
+	opacity: 0;
 	min-width: 0;
-	padding: 1.5rem 2.5rem 2rem;
+	padding: 1.5rem 2.5rem 2.25rem;
 	text-align: center;
+	transform: translateY(8px);
+	transition: opacity 220ms ease 80ms, transform 300ms var(--ease-out) 80ms;
 
 	h2 {
 		overflow-wrap: anywhere;
-		margin-top: 0.65rem;
+		margin-top: 0.55rem;
 		font-size: 1.6rem;
 	}
 }
 
+.detail-kicker { justify-content: center; }
+
+.detail-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45rem 1rem;
+	margin-top: 0.65rem;
+	font-size: 0.76rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--c-text-2);
+
+	span {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+}
+
+.dialog-active {
+	.detail-stage img { transform: none; }
+
+	.detail-laurel {
+		opacity: 0.4;
+		transform: none;
+	}
+
+	.detail-body {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.closing .detail-body { transition-delay: 0ms; }
+
 .detail-story {
 	overflow-wrap: anywhere;
-	margin-top: 1.5rem;
+	margin-top: 1.35rem;
+	padding-top: 1.15rem;
+	border-top: 1px solid var(--c-border);
 	font-size: 0.9rem;
 	line-height: 1.9;
 	white-space: pre-line;
@@ -514,15 +590,22 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: $breakpoint-phone) {
+	.badges-page { padding: 0.75rem; }
+
 	.collection-header {
 		min-height: 112px;
-		padding: 1.25rem;
+		margin-bottom: 1rem;
+		padding: 1.35rem;
+
+		&::after { width: 48%; }
+
+		h1 { font-size: 1.65rem; }
 	}
 
 	.header-art {
-		flex-basis: 140px;
-		margin-right: -0.5rem;
-		transform: scale(0.85);
+		flex-basis: 126px;
+		margin-right: -0.75rem;
+		transform: scale(0.86);
 		transform-origin: right center;
 	}
 
@@ -530,21 +613,56 @@ onBeforeUnmount(() => {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6rem;
 	}
-	.badge-stage { height: 146px; }
+	.badge-stage { min-height: 156px; }
 
 	.badge-stage img {
-		width: 116px;
-		height: 130px;
+		width: 112px;
+		height: 126px;
+	}
+
+	.badge-halo {
+		width: 104px;
+		height: 104px;
+		box-shadow: 0 0 0 12px color-mix(in srgb, var(--c-primary) 3%, transparent);
+	}
+
+	.badge-info {
+		min-height: 62px;
+		padding: 0.45rem 0.65rem 0.75rem;
+	}
+
+	.detail-stage {
+		min-height: 260px;
+
+		img {
+			width: 182px;
+			height: 205px;
+		}
+	}
+
+	.detail-laurel {
+		width: 270px;
+		height: 270px;
 	}
 	.detail-body { padding: 1.25rem 1.5rem 1.75rem; }
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-	.badge-stage img:hover { transform: rotate(-4deg) scale(1.04); }
+	.badge-card:hover {
+		border-color: color-mix(in srgb, var(--c-primary) 32%, var(--c-border));
+		box-shadow: 0 12px 30px color-mix(in srgb, var(--c-primary) 8%, transparent);
+		transform: translateY(-3px);
+
+		.badge-stage img { transform: rotate(-3deg) scale(1.045); }
+
+		.badge-halo {
+			border-color: color-mix(in srgb, var(--c-primary) 28%, var(--c-border));
+			transform: scale(1.04);
+		}
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.badge-stage img { transition: none; }
-	.badge-dialog::backdrop, .badge-dialog.closing::backdrop { animation: none; }
+	.badge-card, .badge-stage img, .badge-halo, .badge-dialog, .badge-dialog::backdrop, .detail-stage img, .detail-laurel, .detail-body { transition: none; }
 }
 </style>
