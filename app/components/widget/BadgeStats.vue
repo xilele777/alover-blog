@@ -11,7 +11,6 @@ const latestDateDisplay = latestDate?.replaceAll('-', '.')
 	<template #title>
 		<NuxtLink class="widget-heading" to="/badges">
 			<span>徽章统计</span>
-			<Icon name="ph:arrow-right" aria-hidden="true" />
 		</NuxtLink>
 	</template>
 	<NuxtLink class="stats-link" to="/badges" aria-label="查看全部徽章">
@@ -44,20 +43,8 @@ const latestDateDisplay = latestDate?.replaceAll('-', '.')
 }
 
 .widget-heading {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
+	display: block;
 	width: 100%;
-
-	.iconify {
-		font-size: 0.85rem;
-		transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-	}
-
-	&:hover .iconify {
-		color: var(--c-primary);
-		transform: translateX(2px);
-	}
 }
 
 .stats-link {
@@ -141,10 +128,14 @@ const latestDateDisplay = latestDate?.replaceAll('-', '.')
 
 	.category-stat dt .iconify { color: var(--c-primary); }
 
-	.recent-stat dt .iconify { color: var(--c-success); }
+	.recent-stat {
+		gap: 0.35rem;
+
+		dt .iconify { color: var(--c-success); }
+	}
 
 	.latest-date {
-		font-size: 0.68rem;
+		font-size: 0.76rem;
 		font-weight: 560;
 		letter-spacing: 0.02em;
 		white-space: nowrap;
@@ -153,6 +144,6 @@ const latestDateDisplay = latestDate?.replaceAll('-', '.')
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.widget-heading .iconify, .stats-link { transition: none; }
+	.stats-link { transition: none; }
 }
 </style>

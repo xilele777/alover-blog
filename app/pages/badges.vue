@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
 	</header>
 
 	<section class="collection" aria-label="徽章收藏">
-		<div v-if="badges.length" class="badge-grid">
+		<div v-if="badges.length" class="badge-grid" :class="{ 'single-badge': badges.length === 1 }">
 			<button
 				v-for="badge, index in badges"
 				:key="badge.id"
@@ -186,9 +186,9 @@ onBeforeUnmount(() => {
 	justify-content: space-between;
 	position: relative;
 	overflow: hidden;
-	min-height: 124px;
-	margin-bottom: 1.25rem;
-	padding: 1.5rem 1.75rem;
+	min-height: 108px;
+	margin-bottom: 1rem;
+	padding: 1.25rem 1.6rem;
 	border: 1px solid var(--c-border);
 	border-radius: 1rem;
 	background:
@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
 		align-items: center;
 		gap: 0.7rem;
 		position: relative;
-		font-size: 2rem;
+		font-size: 2.15rem;
 		font-weight: 720;
 		letter-spacing: 0;
 		z-index: 1;
@@ -236,9 +236,9 @@ onBeforeUnmount(() => {
 }
 
 .header-art {
-	flex: 0 0 176px;
+	flex: 0 0 158px;
 	position: relative;
-	height: 86px;
+	height: 74px;
 	pointer-events: none;
 	z-index: 1;
 }
@@ -247,8 +247,8 @@ onBeforeUnmount(() => {
 	position: absolute;
 	top: 50%;
 	right: -48px;
-	width: 178px;
-	height: 178px;
+	width: 160px;
+	height: 160px;
 	border: 1px solid color-mix(in srgb, var(--c-primary) 14%, transparent);
 	border-radius: 50%;
 	box-shadow: inset 0 0 0 18px color-mix(in srgb, var(--c-primary) 3%, transparent);
@@ -297,6 +297,11 @@ onBeforeUnmount(() => {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
 	gap: 0.9rem;
+
+	&.single-badge {
+		grid-template-columns: minmax(220px, 250px);
+		justify-content: center;
+	}
 }
 
 .badge-card {
@@ -334,7 +339,7 @@ onBeforeUnmount(() => {
 		width: 148px;
 		height: 166px;
 		max-width: 78%;
-		transition: transform var(--dur-base) var(--ease-out);
+		transition: filter 360ms var(--ease-out), transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 		filter: drop-shadow(0 10px 10px rgb(24 44 68 / 15%));
 		object-fit: contain;
 		z-index: 1;
@@ -348,7 +353,19 @@ onBeforeUnmount(() => {
 	border: 1px solid color-mix(in srgb, var(--c-primary) 12%, var(--c-border));
 	border-radius: 50%;
 	box-shadow: 0 0 0 18px color-mix(in srgb, var(--c-primary) 3%, transparent);
-	transition: transform var(--dur-base) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+	transition: border-color 280ms var(--ease-out), box-shadow 360ms var(--ease-out), transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+
+	&::after {
+		content: "";
+		position: absolute;
+		opacity: 0;
+		inset: 8px;
+		border: 1px solid transparent;
+		border-top-color: color-mix(in srgb, var(--c-primary) 52%, transparent);
+		border-radius: 50%;
+		transform: rotate(-45deg) scale(0.92);
+		transition: opacity 220ms var(--ease-out), transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
 }
 
 .badge-number, .demo-label {
@@ -508,8 +525,8 @@ onBeforeUnmount(() => {
 		position: relative;
 		width: 220px;
 		height: 248px;
-		transform: rotate(-2deg) scale(0.92);
-		transition: transform 440ms cubic-bezier(0.22, 1, 0.36, 1) 40ms;
+		transform: scale(0.94);
+		transition: transform 220ms var(--ease-in);
 		filter: drop-shadow(0 12px 15px rgb(24 44 68 / 18%));
 		object-fit: contain;
 	}
@@ -532,8 +549,7 @@ onBeforeUnmount(() => {
 	min-width: 0;
 	padding: 1.5rem 2.5rem 2.25rem;
 	text-align: center;
-	transform: translateY(8px);
-	transition: opacity 220ms ease 80ms, transform 300ms var(--ease-out) 80ms;
+	transition: opacity 220ms ease 80ms;
 
 	h2 {
 		overflow-wrap: anywhere;
@@ -563,7 +579,9 @@ onBeforeUnmount(() => {
 }
 
 .dialog-active {
-	.detail-stage img { transform: none; }
+	.detail-stage img {
+		animation: badge-detail-reveal 760ms cubic-bezier(0.22, 1, 0.36, 1) 30ms both;
+	}
 
 	.detail-laurel {
 		opacity: 0.4;
@@ -572,11 +590,32 @@ onBeforeUnmount(() => {
 
 	.detail-body {
 		opacity: 1;
-		transform: none;
 	}
 }
 
+.closing .detail-stage img {
+	transition-delay: 0ms;
+	animation: none;
+}
+
 .closing .detail-body { transition-delay: 0ms; }
+
+@keyframes badge-detail-reveal {
+	0% {
+		opacity: 0.62;
+		transform: rotate(-16deg) scale(0.9);
+	}
+
+	70% {
+		opacity: 1;
+		transform: rotate(2deg) scale(1.012);
+	}
+
+	100% {
+		opacity: 1;
+		transform: none;
+	}
+}
 
 .detail-story {
 	overflow-wrap: anywhere;
@@ -593,13 +632,13 @@ onBeforeUnmount(() => {
 	.badges-page { padding: 0.75rem; }
 
 	.collection-header {
-		min-height: 112px;
-		margin-bottom: 1rem;
-		padding: 1.35rem;
+		min-height: 96px;
+		margin-bottom: 0.8rem;
+		padding: 1.1rem 1.25rem;
 
 		&::after { width: 48%; }
 
-		h1 { font-size: 1.65rem; }
+		h1 { font-size: 1.8rem; }
 	}
 
 	.header-art {
@@ -612,6 +651,10 @@ onBeforeUnmount(() => {
 	.badge-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.6rem;
+
+		&.single-badge {
+			grid-template-columns: minmax(0, 190px);
+		}
 	}
 	.badge-stage { min-height: 156px; }
 
@@ -650,19 +693,32 @@ onBeforeUnmount(() => {
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
 	.badge-card:hover {
 		border-color: color-mix(in srgb, var(--c-primary) 32%, var(--c-border));
-		box-shadow: 0 12px 30px color-mix(in srgb, var(--c-primary) 8%, transparent);
-		transform: translateY(-3px);
+		box-shadow: 0 10px 26px color-mix(in srgb, var(--c-primary) 9%, transparent);
+		transform: translateY(-2px);
 
-		.badge-stage img { transform: rotate(-3deg) scale(1.045); }
+		.badge-stage img {
+			transform: translateY(-4px) scale(1.035);
+			filter: drop-shadow(0 14px 13px rgb(24 44 68 / 18%));
+		}
 
 		.badge-halo {
 			border-color: color-mix(in srgb, var(--c-primary) 28%, var(--c-border));
-			transform: scale(1.04);
+			box-shadow: 0 0 0 20px color-mix(in srgb, var(--c-primary) 4%, transparent);
+			transform: scale(1.055);
+
+			&::after {
+				opacity: 0.8;
+				transform: rotate(135deg);
+			}
 		}
 	}
+
+	.badge-card:active { transform: translateY(-1px) scale(0.99); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.badge-card, .badge-stage img, .badge-halo, .badge-dialog, .badge-dialog::backdrop, .detail-stage img, .detail-laurel, .detail-body { transition: none; }
+	.badge-card, .badge-stage img, .badge-halo, .badge-halo::after, .badge-dialog, .badge-dialog::backdrop, .detail-stage img, .detail-laurel, .detail-body { transition: none; }
+
+	.detail-stage img { animation: none; }
 }
 </style>
