@@ -31,6 +31,7 @@ const WEBP_EXT = /\.webp$/i
 
 // 生成 WebP 路径
 const webpSrc = computed(() => props.src.replace(RASTER_EXT, '.webp'))
+const hasGeneratedWebp = computed(() => RASTER_EXT.test(props.src) && Object.hasOwn(imageVariants, webpSrc.value))
 
 /**
  * scripts/optimize-images.js 会为每张图生成 480/720/960 宽的变体，
@@ -42,7 +43,7 @@ const webpSrcset = computed(() => {
 	if (!widths || widths.length < 2)
 		return undefined
 
-	const fullWidth = widths[widths.length - 1]
+	const fullWidth = widths.at(-1)
 	const base = webpSrc.value.replace(WEBP_EXT, '')
 	return widths
 		.map(w => `${w === fullWidth ? webpSrc.value : `${base}-${w}w.webp`} ${w}w`)
@@ -52,8 +53,9 @@ const webpSrcset = computed(() => {
 
 <template>
 <picture :class="props.class">
-	<!-- WebP 格式（现代浏览器） -->
+	<!-- Only advertise a generated WebP when the build manifest contains it. -->
 	<source
+		v-if="hasGeneratedWebp"
 		type="image/webp"
 		:srcset="webpSrcset ?? webpSrc"
 		:sizes="webpSrcset ? sizes : undefined"

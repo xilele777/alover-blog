@@ -248,7 +248,8 @@ async function main() {
   }
 
   // 写出变体清单，键为站点内路径，值为可用宽度（升序，最后一项是原图宽度）
-  const sortedManifest = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)))
+  // Keep the output stable when the build machine uses a different default locale.
+  const sortedManifest = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b, 'en')))
   fs.writeFileSync(CONFIG.manifestPath, `${JSON.stringify(sortedManifest, null, '\t')}\n`)
   log(`\n📝 已写出变体清单: ${path.relative(process.cwd(), CONFIG.manifestPath)} (${Object.keys(sortedManifest).length} 张)`, 'blue')
 

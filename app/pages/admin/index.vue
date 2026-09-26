@@ -1602,21 +1602,35 @@ async function scanImageUsage() {
 	isScanningImageUsage.value = true
 	try {
 		const contents = await Promise.all(posts.value.map(post => fetchPostMarkdown(post.path).catch(() => '')))
-		// 徽章通过数据文件引用图片，也必须计入使用情况，避免被当作未使用图片清理。
+		// Data files and site settings can also reference images shown in the library.
 		contents.push(await loadBadgeCollectionSource())
+		contents.push(...await Promise.all(
+			[treasureFilePath, 'blog.config.ts', 'app/app.config.ts'].map(async path =>
+				getStagedContent(path) ?? await fetchTextFile(path)),
+		))
 		const usage: Record<string, number> = {}
 		const allPaths = [
 			...repoImages.value.map(image => image.path),
 			...stagedChanges.value.filter(item => !item.delete && item.encoding === 'base64').map(item => item.path),
 		]
+		const allPathSet = new Set(allPaths)
 		for (const path of allPaths) {
 			const refPath = imageRefPath(path)
-			usage[path] = contents.filter(content => content.includes(refPath)).length
+			// A generated WebP is used when the corresponding original is referenced.
+			const sourceRefs = path.endsWith('.webp')
+				? ['.jpg', '.jpeg', '.png']
+						.map(ext => path.replace(fileExtensionRegex, ext))
+						.filter(original => allPathSet.has(original))
+						.map(imageRefPath)
+				: []
+			usage[path] = contents.filter(content =>
+				content.includes(refPath) || sourceRefs.some(sourceRef => content.includes(sourceRef)),
+			).length
 		}
 		imageUsage.value = usage
 		const unusedCount = Object.values(usage).filter(count => count === 0).length
 		statusMessage.value = unusedCount
-			? `引用检测完成：${unusedCount} 张图片未被文章或徽章引用。`
+			? `引用检测完成：${unusedCount} 张图片未被内容引用。`
 			: '引用检测完成：所有图片都在使用中。'
 	}
 	catch (error) {
