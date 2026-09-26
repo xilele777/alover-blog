@@ -120,6 +120,9 @@ const frontmatterTagsLineRegex = /^tags:[^\r\n]*$/m
 const frontmatterUpdatedLineRegex = /^updated:[^\r\n]*$/m
 const markdownImageRefRegex = /!\[[^\]]*\]\((\/images\/[^)\s]+)\)/g
 const imageFileRegex = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i
+const generatedImageVariantRegex = /-(?:480|720|960)w\.webp$/i
+const imageReferenceDataFileRegex = /\.(?:json|ya?ml|ts)$/
+const imageReferenceContentFileRegex = /\.(?:md|mdc|mdx)$/
 const timeEstablishedRegex = /timeEstablished:\s*(['"])[^'"]*\1/
 const birthYearRegex = /birthYear:\s*\d+/
 const wordCountRegex = /wordCount:\s*(['"])[^'"]*\1/
@@ -235,6 +238,7 @@ const imageSearch = ref('')
 const imageFolder = ref('')
 const imageOnlyUnused = ref(false)
 const imageUsage = ref<Record<string, number> | null>(null)
+const imagePage = ref(1)
 const isScanningImageUsage = ref(false)
 const imageApiPreviews = ref<Record<string, string>>({})
 const selectedImagePaths = ref<string[]>([])
@@ -324,6 +328,14 @@ onMounted(() => {
 watch(settings, () => {
 	localStorage.setItem(settingsKey, JSON.stringify(settings))
 }, { deep: true })
+
+watch(() => [settings.owner, settings.repo, settings.branch], () => {
+	repoImages.value = []
+	imageUsage.value = null
+	imageOnlyUnused.value = false
+	selectedImagePaths.value = []
+	imagePage.value = 1
+})
 
 watch(() => form.title, (title) => {
 	if (selectedPostPath.value || form.slug)
@@ -947,6 +959,8 @@ function loadStagedChanges() {
 }
 
 watch(stagedChanges, () => {
+	imageUsage.value = null
+	imageOnlyUnused.value = false
 	try {
 		if (stagedChanges.value.length)
 			localStorage.setItem(stagedChangesKey, JSON.stringify(stagedChanges.value))
@@ -1541,13 +1555,17 @@ async function loadRepoImages() {
 	}
 	isLoadingImages.value = true
 	try {
-		const result = await githubRequest<{ tree: GithubTreeItem[] }>(
+		const result = await githubRequest<{ tree: GithubTreeItem[], truncated?: boolean }>(
 			`${repoPath.value}/git/trees/${encodeURIComponent(settings.branch.trim())}?recursive=1`,
 		)
+		if (result.truncated)
+			throw new Error('仓库文件列表不完整，请稍后重试。')
 		repoImages.value = result.tree
-			.filter(item => item.type === 'blob' && item.path?.startsWith('public/images/') && imageFileRegex.test(item.path))
+			.filter(item => item.type === 'blob' && item.path?.startsWith('public/images/') && imageFileRegex.test(item.path) && !generatedImageVariantRegex.test(item.path))
 			.map(item => ({ path: item.path!, sha: item.sha, size: item.size }))
 			.sort((a, b) => b.path.localeCompare(a.path))
+		imageUsage.value = null
+		imageOnlyUnused.value = false
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -1581,8 +1599,13 @@ const galleryImages = computed(() => {
 	const committedImages = repoImages.value
 		.filter(image => !deletedPaths.has(image.path) && !stagedPaths.has(image.path))
 		.map(image => ({ path: image.path, size: image.size, staged: false }))
+	const allImagePaths = new Set([...stagedImages, ...committedImages].map(item => item.path))
 	const keyword = imageSearch.value.trim().toLowerCase()
 	return [...stagedImages, ...committedImages].filter((item) => {
+		if (item.path.endsWith('.webp') && ['.jpg', '.jpeg', '.png']
+			.some(ext => allImagePaths.has(item.path.replace(fileExtensionRegex, ext)))) {
+			return false
+		}
 		if (imageFolder.value && !item.path.startsWith(`${imageFolder.value}/`))
 			return false
 		if (imageOnlyUnused.value && getImageUsage(item.path) !== 0)
@@ -1593,21 +1616,52 @@ const galleryImages = computed(() => {
 	})
 })
 
-/** 扫描所有文章（含暂存中的修改），统计每张图片被引用的次数。 */
+const imagesPerPage = 12
+const totalImagePages = computed(() => Math.max(1, Math.ceil(galleryImages.value.length / imagesPerPage)))
+const pagedImages = computed(() => {
+	const start = (imagePage.value - 1) * imagesPerPage
+	return galleryImages.value.slice(start, start + imagesPerPage)
+})
+
+watch([imageSearch, imageFolder, imageOnlyUnused], () => {
+	imagePage.value = 1
+})
+
+watch(totalImagePages, (total) => {
+	if (imagePage.value > total)
+		imagePage.value = total
+})
+
+/** 从当前仓库分支读取内容，而不是依赖可能尚未载入的文章列表。 */
 async function scanImageUsage() {
 	if (!canUseGithub.value) {
 		errorMessage.value = '请先完成 GitHub 配置，再检测图片引用。'
 		return
 	}
 	isScanningImageUsage.value = true
+	imageUsage.value = null
+	imageOnlyUnused.value = false
+	errorMessage.value = ''
+	statusMessage.value = '正在检测当前仓库的图片引用...'
 	try {
-		const contents = await Promise.all(posts.value.map(post => fetchPostMarkdown(post.path).catch(() => '')))
-		// Data files and site settings can also reference images shown in the library.
-		contents.push(await loadBadgeCollectionSource())
-		contents.push(...await Promise.all(
-			[treasureFilePath, 'blog.config.ts', 'app/app.config.ts'].map(async path =>
-				getStagedContent(path) ?? await fetchTextFile(path)),
-		))
+		const result = await githubRequest<{ tree: GithubTreeItem[], truncated?: boolean }>(
+			`${repoPath.value}/git/trees/${encodeURIComponent(settings.branch.trim())}?recursive=1`,
+		)
+		if (result.truncated)
+			throw new Error('仓库文件列表不完整，已取消引用检测。')
+		const markdownPaths = result.tree
+			.filter(item => item.type === 'blob' && item.path?.startsWith('content/') && imageReferenceContentFileRegex.test(item.path))
+			.map(item => item.path!)
+		const dataPaths = result.tree
+			.filter(item => item.type === 'blob' && item.path?.startsWith('data/') && imageReferenceDataFileRegex.test(item.path))
+			.map(item => item.path!)
+		const referencePaths = [...markdownPaths, ...dataPaths, 'blog.config.ts', 'app/app.config.ts']
+		const contents = await Promise.all(referencePaths.map(async path =>
+			getStagedContent(path) ?? await fetchTextFile(path)))
+		repoImages.value = result.tree
+			.filter(item => item.type === 'blob' && item.path?.startsWith('public/images/') && imageFileRegex.test(item.path) && !generatedImageVariantRegex.test(item.path))
+			.map(item => ({ path: item.path!, sha: item.sha, size: item.size }))
+			.sort((a, b) => b.path.localeCompare(a.path))
 		const usage: Record<string, number> = {}
 		const allPaths = [
 			...repoImages.value.map(image => image.path),
@@ -1623,18 +1677,22 @@ async function scanImageUsage() {
 						.filter(original => allPathSet.has(original))
 						.map(imageRefPath)
 				: []
+			const webpPath = path.replace(fileExtensionRegex, '.webp')
+			if (webpPath !== path && allPathSet.has(webpPath))
+				sourceRefs.push(imageRefPath(webpPath))
 			usage[path] = contents.filter(content =>
 				content.includes(refPath) || sourceRefs.some(sourceRef => content.includes(sourceRef)),
 			).length
 		}
 		imageUsage.value = usage
-		const unusedCount = Object.values(usage).filter(count => count === 0).length
+		const unusedCount = galleryImages.value.filter(item => usage[item.path] === 0).length
 		statusMessage.value = unusedCount
-			? `引用检测完成：${unusedCount} 张图片未被内容引用。`
+			? `引用检测完成：当前列表有 ${unusedCount} 张图片未被内容引用。`
 			: '引用检测完成：所有图片都在使用中。'
 	}
 	catch (error) {
 		errorMessage.value = error instanceof Error ? error.message : String(error)
+		statusMessage.value = ''
 	}
 	finally {
 		isScanningImageUsage.value = false
@@ -1662,7 +1720,10 @@ function toggleImageSelection(path: string) {
 }
 
 function selectFilteredImages() {
-	selectedImagePaths.value = galleryImages.value.map(item => item.path)
+	selectedImagePaths.value = [...new Set([
+		...selectedImagePaths.value,
+		...pagedImages.value.map(item => item.path),
+	])]
 }
 
 function clearImageSelection() {
@@ -1721,10 +1782,10 @@ function removeLibraryImage(path: string) {
 		},
 		confirmLabel: '暂存删除',
 		detail: usage === undefined
-			? '尚未检测引用，请先确认没有文章正在使用这张图片。'
+			? '尚未检测引用，请先确认没有内容正在使用这张图片。'
 			: usage > 0
-				? `注意：仍有 ${usage} 篇文章引用这张图片，删除后文章中会出现坏图。`
-				: '这张图片未被任何文章引用，可以放心删除。',
+				? `注意：仍有 ${usage} 处内容引用这张图片，删除后会出现坏图。`
+				: '没有发现内容引用这张图片，请确认后删除。',
 		message: `确定删除图片 ${path} 吗？`,
 		title: '删除图片',
 	})
@@ -1744,9 +1805,9 @@ function removeSelectedImages() {
 		},
 		confirmLabel: '批量暂存删除',
 		detail: usedCount
-			? `注意：其中 ${usedCount} 张仍被文章引用，删除后会出现坏图。`
+			? `注意：其中 ${usedCount} 张仍被内容引用，删除后会出现坏图。`
 			: imageUsage.value
-				? '所选图片均未被文章引用。'
+				? '所选图片均未被内容引用。'
 				: '尚未检测引用，建议先点击“检测引用”确认。',
 		message: `确定删除选中的 ${paths.length} 张图片吗？`,
 		title: '批量删除图片',
@@ -2821,6 +2882,9 @@ onBeforeUnmount(() => {
 						<Icon name="ph:cursor-click-bold" />
 						<span>{{ imageLibraryMode === 'insert' ? '点击任意图片，即可插入到正文光标处。' : '点击任意图片，即可设为文章封面。' }}</span>
 					</p>
+					<p class="image-source-hint">
+						图片来自 {{ settings.owner }}/{{ settings.repo }} · {{ settings.branch }}
+					</p>
 					<div class="dialog-toolbar">
 						<label class="search-field">
 							<Icon name="ph:magnifying-glass-bold" />
@@ -2846,12 +2910,12 @@ onBeforeUnmount(() => {
 						</button>
 						<label v-if="imageUsage" class="unused-toggle">
 							<input v-model="imageOnlyUnused" type="checkbox">
-							<span>仅看未使用</span>
+							<span>仅看未引用</span>
 						</label>
 						<span class="manage-bar-spacer" />
 						<button v-if="galleryImages.length" class="secondary-button" type="button" @click="selectFilteredImages">
 							<Icon name="ph:selection-all-bold" />
-							<span>全选</span>
+							<span>全选本页</span>
 						</button>
 						<button v-if="selectedImagePaths.length" class="secondary-button" type="button" @click="clearImageSelection">
 							<span>取消选择</span>
@@ -2863,7 +2927,7 @@ onBeforeUnmount(() => {
 					</div>
 					<div class="image-grid">
 						<figure
-							v-for="item in galleryImages"
+							v-for="item in pagedImages"
 							:key="item.path"
 							class="image-card"
 							:class="{ clickable: imageLibraryMode !== 'browse', selected: selectedImagePaths.includes(item.path) }"
@@ -2883,7 +2947,7 @@ onBeforeUnmount(() => {
 								@error="loadImageApiPreview(item.path)"
 							>
 							<span v-if="item.staged" class="image-badge">未提交</span>
-							<span v-else-if="getImageUsage(item.path) === 0" class="image-badge unused">未使用</span>
+							<span v-else-if="getImageUsage(item.path) === 0" class="image-badge unused">未发现引用</span>
 							<span v-else-if="getImageUsage(item.path)" class="image-badge used">引用 {{ getImageUsage(item.path) }}</span>
 							<figcaption :title="item.path">
 								<span>{{ item.path.split('/').at(-1) }}</span>
@@ -2911,6 +2975,19 @@ onBeforeUnmount(() => {
 						<p v-if="!galleryImages.length" class="empty-text">
 							{{ isLoadingImages ? '正在读取图片…' : repoImages.length ? '没有匹配的图片' : '仓库中还没有已上传的图片' }}
 						</p>
+					</div>
+					<div class="post-pagination image-pagination">
+						<span>共 {{ galleryImages.length }} 张 · 第 {{ imagePage }} / {{ totalImagePages }} 页</span>
+						<div v-if="totalImagePages > 1" class="image-pagination-actions">
+							<button class="secondary-button" :disabled="imagePage <= 1" type="button" @click="imagePage--">
+								<Icon name="ph:caret-left-bold" />
+								<span>上一页</span>
+							</button>
+							<button class="secondary-button" :disabled="imagePage >= totalImagePages" type="button" @click="imagePage++">
+								<span>下一页</span>
+								<Icon name="ph:caret-right-bold" />
+							</button>
+						</div>
 					</div>
 				</div>
 
@@ -4408,6 +4485,20 @@ textarea {
 	}
 }
 
+.image-source-hint {
+	font-size: 0.75rem;
+	color: var(--c-text-3);
+}
+
+.image-pagination {
+	flex: none;
+}
+
+.image-pagination-actions {
+	display: flex;
+	gap: 0.5rem;
+}
+
 .image-mode-hint {
 	display: flex;
 	align-items: center;
@@ -4466,6 +4557,7 @@ textarea {
 .image-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+	grid-auto-rows: max-content;
 	align-content: start;
 	gap: 0.65rem;
 	overflow: auto;
