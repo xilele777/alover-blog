@@ -7,5 +7,14 @@
     "date": "2026-09-16",
     "demo": false,
     "category": "资源珍藏"
+  },
+  {
+    "id": "47a39b8c-4c4c-43d5-9a60-29601d1c5be7",
+    "name": "红高粱",
+    "image": "/images/badges/a105f2ca-7f0e-4c88-a8ce-f78b5d2e636f.svg",
+    "description": "HNUCO第一次排练《红高粱》，解锁成就！",
+    "date": "2026-09-15",
+    "category": "排练",
+    "demo": false
   }
 ]
