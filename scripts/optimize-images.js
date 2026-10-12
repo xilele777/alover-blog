@@ -1,289 +1,229 @@
 /**
- * 图片优化脚本
- * 自动将 public/images 下的图片转换为 WebP 格式并压缩
+ * 构建时生成 WebP 与响应式变体，按原图内容和编码配置复用缓存。
+ * 缓存只保存生成产物，恢复缓存不会覆盖本次提交的原图。
  */
-
+import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const projectDir = path.resolve(path.dirname(__filename), '..')
 
-// 配置
 const CONFIG = {
-  inputDirs: [
-    path.join(__dirname, '../public/images'),
-    path.join(__dirname, '../public'),  // 包含根目录（头像等）
-  ],
-  outputSuffix: '.webp',
-  quality: 85,
-  skipIfExists: true, // 如果 WebP 已存在则跳过
-  supportedFormats: ['.jpg', '.jpeg', '.png'],
-  excludeDirs: ['images'],  // 在 public/ 根目录时排除 images 子目录（避免重复）
-  // 为不同类型的图片设置不同质量
-  qualityByType: {
-    avatar: 90,     // 头像高质量
-    cover: 85,      // 封面图
-    default: 80     // 其他图片
-  },
-  // 最大宽度限制
-  maxWidth: 1400,
-  // 响应式变体宽度：封面图在页面上最多只有 400 CSS px 左右，
-  // 直出 1080px 原图会白白多传几十上百 KiB（Lighthouse image-delivery 的主要来源）
-  responsiveWidths: [480, 720, 960],
-  // 变体清单输出位置，供 ImgOptimized 组件生成 srcset
-  manifestPath: path.join(__dirname, '../app/image-variants.json'),
-  // public 目录，用于把绝对路径换算成站点内路径
-  publicDir: path.join(__dirname, '../public'),
+	publicDir: path.join(projectDir, 'public'),
+	manifestPath: path.join(projectDir, 'app/image-variants.json'),
+	cacheDir: path.join(projectDir, '.cache/image-optimization'),
+	// 同名原图共用一个 WebP，沿用原脚本的格式顺序，避免 avatar.jpg / avatar.png 互相覆盖。
+	supportedFormats: ['.jpg', '.jpeg', '.png'],
+	qualityByType: { avatar: 90, cover: 85, default: 80 },
+	maxWidth: 1400,
+	responsiveWidths: [480, 720, 960],
+	variantOptions: { effort: 6, smartSubsample: true },
 }
 
-// 颜色输出
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  gray: '\x1b[90m',
+function hash(buffer) {
+	return createHash('sha256').update(buffer).digest('hex')
 }
 
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`)
+function getQuality(filePath, config) {
+	const fileName = path.basename(filePath).toLowerCase()
+	if (fileName.includes('avatar'))
+		return config.qualityByType.avatar
+	if (fileName.includes('cover'))
+		return config.qualityByType.cover
+	return config.qualityByType.default
 }
 
-// 获取图片质量设置
-function getQuality(filePath) {
-  const fileName = path.basename(filePath).toLowerCase()
-
-  if (fileName.includes('avatar')) return CONFIG.qualityByType.avatar
-  if (fileName.includes('cover')) return CONFIG.qualityByType.cover
-
-  return CONFIG.qualityByType.default
+function getAllImageFiles(dir, config, files = []) {
+	if (!fs.existsSync(dir))
+		return files
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const filePath = path.join(dir, entry.name)
+		if (entry.isDirectory())
+			getAllImageFiles(filePath, config, files)
+		else if (entry.isFile() && config.supportedFormats.includes(path.extname(entry.name).toLowerCase()))
+			files.push(filePath)
+	}
+	return files
 }
 
-// 递归获取所有图片文件
-function getAllImageFiles(dir, fileList = [], isRootPublic = false) {
-  if (!fs.existsSync(dir)) {
-    log(`⚠️  目录不存在: ${dir}`, 'yellow')
-    return fileList
-  }
-
-  const files = fs.readdirSync(dir)
-
-  files.forEach((file) => {
-    const filePath = path.join(dir, file)
-    const stat = fs.statSync(filePath)
-
-    if (stat.isDirectory()) {
-      // 如果是 public 根目录，跳过 images 子目录（避免重复）
-      if (isRootPublic && CONFIG.excludeDirs.includes(file)) {
-        return
-      }
-      getAllImageFiles(filePath, fileList, false)
-    } else {
-      const ext = path.extname(file).toLowerCase()
-      if (CONFIG.supportedFormats.includes(ext)) {
-        fileList.push(filePath)
-      }
-    }
-  })
-
-  return fileList
+function getOutputPath(inputPath) {
+	const parsed = path.parse(inputPath)
+	return path.join(parsed.dir, `${parsed.name}.webp`)
 }
 
-// 站点内路径，如 /images/2026/foo.webp
-function toPublicPath(filePath) {
-  return `/${path.relative(CONFIG.publicDir, filePath).split(path.sep).join('/')}`
+function toPublicPath(filePath, config) {
+	return `/${path.relative(config.publicDir, filePath).split(path.sep).join('/')}`
 }
 
-// 生成响应式变体，并返回该图片可用的宽度列表（含原图宽度）
-async function buildVariants(webpPath, quality) {
-  const parsed = path.parse(webpPath)
-  const { width } = await sharp(webpPath).metadata()
-  const widths = []
-
-  for (const w of CONFIG.responsiveWidths) {
-    // 只生成比原图更小的尺寸，放大没有意义
-    if (w >= width) continue
-
-    const variantPath = path.join(parsed.dir, `${parsed.name}-${w}w${CONFIG.outputSuffix}`)
-    if (!fs.existsSync(variantPath)) {
-      await sharp(webpPath)
-        .resize(w, null, { withoutEnlargement: true })
-        .webp({ quality, effort: 6, smartSubsample: true })
-        .toFile(variantPath)
-      log(`   ↳ 生成 ${w}w 变体: ${formatBytes(fs.statSync(variantPath).size)}`, 'gray')
-    }
-    widths.push(w)
-  }
-
-  widths.push(width)
-  return widths
+function getWidths(width, config) {
+	return [...config.responsiveWidths.filter(w => w < width), width]
 }
 
-// 格式化文件大小
+function getCacheFileNames(widths) {
+	return widths.map((w, index) => index === widths.length - 1 ? 'main.webp' : `${w}w.webp`)
+}
+
+function getCacheKey(source, quality, config) {
+	const settings = {
+		version: 1,
+		quality,
+		maxWidth: config.maxWidth,
+		responsiveWidths: config.responsiveWidths,
+		variantOptions: config.variantOptions,
+		sharp: sharp.versions.sharp,
+		vips: sharp.versions.vips,
+		webp: sharp.versions.webp,
+	}
+	return hash(Buffer.concat([Buffer.from(`${JSON.stringify(settings)}\0`), source]))
+}
+
+// 清单最后写入；中断生成、缺失文件或损坏缓存都视为未命中。
+function readCachedImages(cachePath, config) {
+	try {
+		const metadata = JSON.parse(fs.readFileSync(path.join(cachePath, 'metadata.json'), 'utf8'))
+		if (!Number.isSafeInteger(metadata.width) || metadata.width <= 0)
+			return undefined
+		const widths = getWidths(metadata.width, config)
+		if (!Array.isArray(metadata.hashes) || metadata.hashes.length !== widths.length)
+			return undefined
+		const buffers = getCacheFileNames(widths).map(name => fs.readFileSync(path.join(cachePath, name)))
+		if (buffers.some((buffer, index) => hash(buffer) !== metadata.hashes[index]))
+			return undefined
+		return { widths, buffers }
+	}
+	catch {
+		return undefined
+	}
+}
+
+function writeIfChanged(filePath, data) {
+	const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
+	if (fs.existsSync(filePath) && fs.readFileSync(filePath).equals(buffer))
+		return false
+	fs.mkdirSync(path.dirname(filePath), { recursive: true })
+	fs.writeFileSync(filePath, buffer)
+	return true
+}
+
+async function generateImages(source, quality, cachePath, config) {
+	const { data, info } = await sharp(source)
+		.resize({ width: config.maxWidth, withoutEnlargement: true, fit: 'inside' })
+		.webp({ quality })
+		.toBuffer({ resolveWithObject: true })
+	const widths = getWidths(info.width, config)
+	const buffers = []
+	for (const w of widths) {
+		buffers.push(w === info.width
+			? data
+			: await sharp(data)
+					.resize(w, null, { withoutEnlargement: true })
+					.webp({ quality, ...config.variantOptions })
+					.toBuffer())
+	}
+
+	const names = getCacheFileNames(widths)
+	for (const [index, buffer] of buffers.entries())
+		writeIfChanged(path.join(cachePath, names[index]), buffer)
+	writeIfChanged(path.join(cachePath, 'metadata.json'), JSON.stringify({
+		width: info.width,
+		hashes: buffers.map(hash),
+	}))
+	return { widths, buffers }
+}
+
+function publishImages(outputPath, images) {
+	const parsed = path.parse(outputPath)
+	for (const [index, w] of images.widths.entries()) {
+		const target = index === images.widths.length - 1
+			? outputPath
+			: path.join(parsed.dir, `${parsed.name}-${w}w.webp`)
+		writeIfChanged(target, images.buffers[index])
+	}
+}
+
 function formatBytes(bytes) {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+	if (bytes === 0)
+		return '0 Bytes'
+	const i = Math.floor(Math.log(bytes) / Math.log(1024))
+	return `${(bytes / 1024 ** i).toFixed(2)} ${['Bytes', 'KB', 'MB'][i]}`
 }
 
-// 优化单个图片
-async function optimizeImage(inputPath) {
-  const parsed = path.parse(inputPath)
-  const outputPath = path.join(parsed.dir, `${parsed.name}${CONFIG.outputSuffix}`)
+export async function optimizeImages(options = {}) {
+	const config = { ...CONFIG, ...options }
+	const startTime = Date.now()
+	console.log('\n🖼️  开始图片优化...\n')
+	const allFiles = getAllImageFiles(config.publicDir, config)
+	const sources = new Map()
+	for (const filePath of allFiles) {
+		const outputPath = getOutputPath(filePath)
+		const previous = sources.get(outputPath)
+		const priority = file => config.supportedFormats.indexOf(path.extname(file).toLowerCase())
+		if (!previous || priority(filePath) < priority(previous))
+			sources.set(outputPath, filePath)
+	}
+	console.log(`📁 找到 ${allFiles.length} 个原图，对应 ${sources.size} 个 WebP`)
+	if (allFiles.length > sources.size)
+		console.log('ℹ️  同名原图共用 WebP，按 JPG / JPEG / PNG 顺序选择来源')
 
-  // 如果 WebP 已存在且配置跳过，则不处理
-  if (CONFIG.skipIfExists && fs.existsSync(outputPath)) {
-    log(`⏭️  跳过（已存在）: ${path.basename(outputPath)}`, 'gray')
-    return { skipped: true, outputPath, quality: getQuality(inputPath) }
-  }
+	const stats = { success: 0, cached: 0, variants: 0, error: 0, originalSize: 0, outputSize: 0 }
+	const manifest = {}
+	for (const [outputPath, inputPath] of sources) {
+		try {
+			const source = fs.readFileSync(inputPath)
+			const quality = getQuality(inputPath, config)
+			const cachePath = path.join(config.cacheDir, getCacheKey(source, quality, config))
+			let images = readCachedImages(cachePath, config)
+			if (images) {
+				stats.cached++
+			}
+			else {
+				images = await generateImages(source, quality, cachePath, config)
+				const outputSize = images.buffers.at(-1).length
+				const savedPercent = ((1 - outputSize / source.length) * 100).toFixed(1)
+				console.log(`✅ ${toPublicPath(inputPath, config)} → ${formatBytes(source.length)} → ${formatBytes(outputSize)} (节省 ${savedPercent}%)`)
+				for (const [index, w] of images.widths.slice(0, -1).entries())
+					console.log(`   ↳ 生成 ${w}w 变体: ${formatBytes(images.buffers[index].length)}`)
+				stats.success++
+				stats.variants += images.widths.length - 1
+				stats.originalSize += source.length
+				stats.outputSize += outputSize
+			}
+			// 新检出的构建目录也要恢复主 WebP 和全部变体；内容相同则不重写。
+			publishImages(outputPath, images)
+			manifest[toPublicPath(outputPath, config)] = images.widths
+		}
+		catch (error) {
+			stats.error++
+			console.error(`❌ 优化失败: ${toPublicPath(inputPath, config)} — ${error.message}`)
+		}
+	}
 
-  try {
-    // 获取原始文件信息
-    const originalSize = fs.statSync(inputPath).size
-    const quality = getQuality(inputPath)
-
-    // 使用 sharp 转换
-    const image = sharp(inputPath)
-    const metadata = await image.metadata()
-
-    // 如果图片宽度超过最大限制，则缩小
-    if (metadata.width > CONFIG.maxWidth) {
-      image.resize(CONFIG.maxWidth, null, {
-        withoutEnlargement: true,
-        fit: 'inside'
-      })
-    }
-
-    // 转换为 WebP
-    await image
-      .webp({ quality })
-      .toFile(outputPath)
-
-    // 获取输出文件大小
-    const outputSize = fs.statSync(outputPath).size
-    const saved = originalSize - outputSize
-    const savedPercent = ((saved / originalSize) * 100).toFixed(1)
-
-    log(
-      `✅ ${path.basename(inputPath)} → ${formatBytes(originalSize)} → ${formatBytes(outputSize)} (节省 ${savedPercent}%)`,
-      'green'
-    )
-
-    return {
-      success: true,
-      originalSize,
-      outputSize,
-      saved,
-      savedPercent,
-      outputPath,
-      quality
-    }
-  } catch (error) {
-    log(`❌ 优化失败: ${inputPath}`, 'yellow')
-    log(`   错误: ${error.message}`, 'gray')
-    return { error: true, message: error.message }
-  }
+	// 失败时保留上次完整清单，并让构建失败，避免发布缺少变体的站点。
+	if (stats.error > 0)
+		throw new Error(`${stats.error} 张图片优化失败`)
+	const sortedManifest = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b, 'en')))
+	const changed = writeIfChanged(config.manifestPath, `${JSON.stringify(sortedManifest, null, '\t')}\n`)
+	console.log(`\n📝 变体清单${changed ? '已更新' : '无变化'}: ${path.relative(projectDir, config.manifestPath)} (${sources.size} 张)`)
+	console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+	console.log('📊 优化统计')
+	console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+	console.log(`✅ 新优化: ${stats.success} 张`)
+	console.log(`♻️  复用缓存: ${stats.cached} 张（含尺寸变体）`)
+	console.log(`📐 新生成尺寸变体: ${stats.variants} 个`)
+	if (stats.success > 0)
+		console.log(`💰 本次节省: ${formatBytes(stats.originalSize - stats.outputSize)}`)
+	console.log(`\n⏱️  耗时: ${((Date.now() - startTime) / 1000).toFixed(2)} 秒\n`)
+	return stats
 }
 
-// 主函数
-async function main() {
-  log('\n🖼️  开始图片优化...\n', 'blue')
-
-  const startTime = Date.now()
-
-  // 获取所有图片文件
-  let imageFiles = []
-  for (let i = 0; i < CONFIG.inputDirs.length; i++) {
-    const dir = CONFIG.inputDirs[i]
-    const isRootPublic = dir.endsWith('public')
-    const files = getAllImageFiles(dir, [], isRootPublic)
-    imageFiles = imageFiles.concat(files)
-  }
-
-  if (imageFiles.length === 0) {
-    log('⚠️  未找到需要优化的图片', 'yellow')
-    return
-  }
-
-  log(`📁 找到 ${imageFiles.length} 个图片文件\n`, 'blue')
-
-  // 统计数据
-  const stats = {
-    total: imageFiles.length,
-    success: 0,
-    skipped: 0,
-    error: 0,
-    totalOriginalSize: 0,
-    totalOutputSize: 0,
-  }
-
-  // 批量处理图片
-  const manifest = {}
-  for (const imagePath of imageFiles) {
-    const result = await optimizeImage(imagePath)
-
-    if (result.skipped) {
-      stats.skipped++
-    } else if (result.error) {
-      stats.error++
-    } else if (result.success) {
-      stats.success++
-      stats.totalOriginalSize += result.originalSize
-      stats.totalOutputSize += result.outputSize
-    }
-
-    // 无论主 WebP 是新生成还是已存在，都补齐响应式变体
-    if (result.outputPath) {
-      try {
-        manifest[toPublicPath(result.outputPath)] = await buildVariants(result.outputPath, result.quality)
-      } catch (error) {
-        log(`⚠️  生成变体失败: ${path.basename(result.outputPath)} — ${error.message}`, 'yellow')
-      }
-    }
-  }
-
-  // 写出变体清单，键为站点内路径，值为可用宽度（升序，最后一项是原图宽度）
-  // Keep the output stable when the build machine uses a different default locale.
-  const sortedManifest = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b, 'en')))
-  fs.writeFileSync(CONFIG.manifestPath, `${JSON.stringify(sortedManifest, null, '\t')}\n`)
-  log(`\n📝 已写出变体清单: ${path.relative(process.cwd(), CONFIG.manifestPath)} (${Object.keys(sortedManifest).length} 张)`, 'blue')
-
-  // 输出统计信息
-  const duration = ((Date.now() - startTime) / 1000).toFixed(2)
-  const totalSaved = stats.totalOriginalSize - stats.totalOutputSize
-  const totalSavedPercent = stats.totalOriginalSize > 0
-    ? ((totalSaved / stats.totalOriginalSize) * 100).toFixed(1)
-    : 0
-
-  log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'blue')
-  log('📊 优化统计', 'blue')
-  log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'blue')
-  log(`✅ 成功优化: ${stats.success} 个`)
-  log(`⏭️  已跳过: ${stats.skipped} 个`)
-  if (stats.error > 0) {
-    log(`❌ 失败: ${stats.error} 个`, 'yellow')
-  }
-
-  if (stats.success > 0) {
-    log(`\n💾 原始大小: ${formatBytes(stats.totalOriginalSize)}`)
-    log(`💾 优化后: ${formatBytes(stats.totalOutputSize)}`)
-    log(`💰 节省: ${formatBytes(totalSaved)} (${totalSavedPercent}%)`, 'green')
-  }
-
-  log(`\n⏱️  耗时: ${duration}秒\n`, 'gray')
-
-  if (stats.error > 0) {
-    process.exit(1)
-  }
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+	optimizeImages().catch((error) => {
+		console.error(`\n❌ 脚本执行失败: ${error.message}`)
+		process.exitCode = 1
+	})
 }
-
-// 运行
-main().catch((error) => {
-  log(`\n❌ 脚本执行失败: ${error.message}`, 'yellow')
-  process.exit(1)
-})

@@ -36,12 +36,35 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # Only cache generated assets. Source images always come from this checkout.
+      # The script validates each entry against source content and encoding settings.
+      - name: Restore optimized images
+        id: image-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/image-optimization
+          key: ${{ runner.os }}-images-v1-${{ hashFiles('scripts/optimize-images.js', 'pnpm-lock.yaml') }}-${{ hashFiles('public/**') }}
+          restore-keys: |
+            ${{ runner.os }}-images-v1-${{ hashFiles('scripts/optimize-images.js', 'pnpm-lock.yaml') }}-
+
+      - name: Optimize images
+        run: pnpm optimize:images
+
+      # Save before the site build so unrelated build failures don't discard the work.
+      - name: Save optimized images
+        if: steps.image-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/image-optimization
+          key: ${{ steps.image-cache.outputs.cache-primary-key }}
+
       - name: Generate static site
         env:
           # Prefer a personal token so private repositories are included in the count.
           # Fall back to the ephemeral Actions token for public-only statistics.
           GITHUB_TOKEN: ${{ secrets.BLOG_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-        run: pnpm generate
+        # Images were optimized above; invoke Nuxt directly to avoid pregenerate twice.
+        run: pnpm exec nuxt generate
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

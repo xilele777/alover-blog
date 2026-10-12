@@ -1,5 +1,19 @@
 # 图片优化指南
 
+## 当前构建缓存策略
+
+`pnpm optimize:images` 自动扫描 `public/` 下的 PNG/JPG/JPEG，并生成主 WebP、480/720/960 宽变体及 `app/image-variants.json`。
+
+- 生成产物保存在 `.cache/image-optimization/`，该目录不提交到 Git。缓存按原图内容、压缩质量、尺寸设置及 Sharp 编码器版本区分。
+- 原图和配置未变时直接复用主 WebP 和全部尺寸变体；缓存文件缺失或损坏时自动重新生成。现有 WebP 文件本身不能作为原图未变的依据。
+- GitHub Actions 在优化前恢复缓存，在优化成功后保存缓存。后续构建即使是全新检出的目录，也能恢复历史图片的全部产物；原图始终来自本次提交。
+- 第一次部署或缓存被清理后需要完整生成一次。新增或修改图片后，只重新生成对应图片；日志分别汇总新优化图片、缓存复用图片和新生成变体。
+- 同目录的同名 PNG/JPG/JPEG 共用一个 WebP，按 JPG、JPEG、PNG 的顺序固定选择来源，与项目当前 `/avatar.jpg` 的引用保持一致。仅有 WebP、没有原图的独立资源保留原状。
+
+验证缓存行为：`node --test scripts/optimize-images.test.js`。
+
+以下内容保留了早期方案和优化背景。
+
 ## ⚠️ 重要发现
 
 当前配置 `provider: 'none'` 导致 **Nuxt Image 的所有优化功能失效**，包括：
