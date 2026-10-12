@@ -113,6 +113,7 @@ export default defineAppConfig({
 				{ icon: 'ph:medal-bold', text: '徽章', url: '/badges' },
 				/* { icon: 'ph:rocket-launch-bold', text: '项目', url: '/projects' }, */
 				{ icon: 'ph:book-open-bold', text: '笔记', url: 'https://note.alover.me' },
+				{ icon: 'ph:notebook-bold', text: 'Rehearsal', url: 'https://log.alover.me' },
 				{ icon: 'ph:chart-line-bold', text: '访问统计', url: 'https://cloud.umami.is/analytics/us/share/jW9qM012FsWV68UT?date=30day&page=1' },
 			],
 		},
