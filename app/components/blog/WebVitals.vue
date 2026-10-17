@@ -26,7 +26,7 @@ onMounted(() => {
 })
 
 function sendToAnalytics(metric: string, value: number) {
-	// 发送到分析服务（例如 Google Analytics, Umami 等）
+	// 发送性能指标到 Umami
 	window.umami?.track('web-vitals', {
 		metric,
 		value: Math.round(value),

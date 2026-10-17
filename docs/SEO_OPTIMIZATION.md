@@ -31,25 +31,7 @@
 
 ## 需要手动配置的优化
 
-### 1. Google Search Console
-1. 访问 [Google Search Console](https://search.google.com/search-console)
-2. 添加网站 `https://alover.me/`
-3. 验证所有权（推荐使用 DNS 验证或 HTML 文件验证）
-4. 提交 sitemap：`https://alover.me/sitemap.xml`
-5. 监控索引状态和搜索表现
-
-### 2. Bing Webmaster Tools
-1. 访问 [Bing Webmaster Tools](https://www.bing.com/webmasters)
-2. 添加网站并验证
-3. 提交 sitemap：`https://alover.me/sitemap.xml`
-
-### 3. 百度站长平台
-1. 访问 [百度搜索资源平台](https://ziyuan.baidu.com/)
-2. 添加网站并验证
-3. 提交 sitemap：`https://alover.me/sitemap.xml`
-4. 考虑使用百度主动推送 API 加快收录
-
-### 4. 优化图片资源
+### 1. 优化图片资源
 当前的 avatar.png (104K) 较大，建议：
 ```bash
 # 优化现有图片
@@ -58,7 +40,7 @@ cd public
 # 建议将 PNG 转换为 WebP 格式以减小体积
 ```
 
-### 5. 添加 Web Manifest（PWA）
+### 2. 添加 Web Manifest（PWA）
 创建 `public/manifest.json`：
 ```json
 {
@@ -84,15 +66,15 @@ cd public
 { rel: 'manifest', href: '/manifest.json' }
 ```
 
-### 6. 社交媒体推广
+### 3. 社交媒体推广
 - 在社交媒体平台分享文章时，Open Graph 标签会自动生成预览卡片
 - 考虑添加社交媒体分享按钮
 
-### 7. 内部链接优化
+### 4. 内部链接优化
 - 在文章中添加相关文章的内部链接
 - 在首页添加热门或推荐文章区块（已有轮播推荐）
 
-### 8. 监控和分析
+### 5. 监控和分析
 当前已集成 Umami 统计，建议：
 - 定期查看统计数据，了解访问来源和热门内容
 - 根据数据优化内容策略
@@ -109,9 +91,8 @@ cd public
 ## 下一步优化建议
 
 ### 短期（1-2 周）
-1. 完成 Google Search Console 和百度站长平台配置
-2. 优化大尺寸图片
-3. 添加 Web Manifest
+1. 优化大尺寸图片
+2. 添加 Web Manifest
 
 ### 中期（1 个月）
 1. 分析搜索引擎收录情况
