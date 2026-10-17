@@ -16,5 +16,14 @@
     "date": "2026-09-15",
     "category": "排练",
     "demo": false
+  },
+  {
+    "id": "c961ac47-fa48-47a7-baa0-ce1918f0290c",
+    "name": "逐梦",
+    "image": "/images/badges/3b0f287d-355c-40e3-8c93-c342a466e307.svg",
+    "description": "HNUCO第一次排逐梦！！",
+    "date": "2026-10-13",
+    "demo": false,
+    "category": "排练"
   }
 ]
